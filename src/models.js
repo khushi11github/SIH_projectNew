@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const AvailabilitySchema = new mongoose.Schema({
     day: String,
@@ -58,21 +58,12 @@ const StudentProgressSchema = new mongoose.Schema({
     }
 });
 
-const Teacher = mongoose.model('Teacher', TeacherSchema);
-const ClassModel = mongoose.model('Class', ClassSchema);
-const Subject = mongoose.model('Subject', SubjectSchema);
-const Student = mongoose.model('Student', StudentSchema);
-const Config = mongoose.model('Config', ConfigSchema);
-const StudentProgress = mongoose.model('StudentProgress', StudentProgressSchema);
-
-module.exports = {
-    Teacher,
-    ClassModel,
-    Subject,
-    Student,
-    Config,
-    StudentProgress
-};
+export const Teacher = mongoose.model('Teacher', TeacherSchema);
+export const ClassModel = mongoose.model('Class', ClassSchema);
+export const Subject = mongoose.model('Subject', SubjectSchema);
+export const Student = mongoose.model('Student', StudentSchema);
+export const Config = mongoose.model('Config', ConfigSchema);
+export const StudentProgress = mongoose.model('StudentProgress', StudentProgressSchema);
 
 
 

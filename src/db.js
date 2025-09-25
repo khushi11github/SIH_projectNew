@@ -1,9 +1,8 @@
-const mongoose = require('mongoose');
-require('dotenv').config();
+import mongoose from 'mongoose';
 
 let isConnected = false;
 
-async function connectToMongo(mongoUri) {
+export async function connectToMongo(mongoUri) {
     if (isConnected) return mongoose.connection;
     const uri = mongoUri || process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/sih_timetable';
     // Extract database name from URI if not specified
@@ -20,7 +19,5 @@ async function connectToMongo(mongoUri) {
     isConnected = true;
     return mongoose.connection;
 }
-
-module.exports = { connectToMongo };
 
 

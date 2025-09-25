@@ -1,43 +1,30 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
   "functions": {
     "api/**/*.js": {
       "runtime": "nodejs18.x"
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     },
     {
-      "src": "/timetable/teacher/(.*)",
-      "dest": "/index.html"
+      "source": "/timetable/teacher/(.*)",
+      "destination": "/index.html"
     },
     {
-      "src": "/timetable/(.*)",
-      "dest": "/index.html"
+      "source": "/timetable/(.*)",
+      "destination": "/index.html"
     },
     {
-      "src": "/admin",
-      "dest": "/index.html"
+      "source": "/admin",
+      "destination": "/index.html"
     },
     {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
-      "dest": "/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

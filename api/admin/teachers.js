@@ -1,5 +1,5 @@
-const { connectToMongo } = require('../../src/db');
-const { Teacher } = require('../../src/models');
+import { connectToMongo } from '../../src/db.js';
+import { Teacher } from '../../src/models.js';
 
 let tgInstance = null; // Reset generator when data changes
 

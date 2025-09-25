@@ -1,5 +1,5 @@
-const { connectToMongo } = require('../../src/db');
-const TimetableGenerator = require('../../src/timetable.js');
+import { connectToMongo } from '../src/db.js';
+import TimetableGenerator from '../src/timetable.js';
 
 // Keep a singleton generator in memory for activity plans and progress
 let tgInstance = null;
@@ -24,11 +24,22 @@ async function getGenerator() {
 }
 
 export default async function handler(req, res) {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+    
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
     if (req.method === 'GET') {
         try {
             tgInstance = null; // Force regeneration
             const tg = await getGenerator();
-            res.json({ ok: true, message: 'Timetables regenerated' });
+            res.status(200).json({ ok: true, message: 'Timetables regenerated' });
         } catch (error) {
             console.error('Error generating timetables:', error.message);
             res.status(500).json({ ok: false, error: error.message });

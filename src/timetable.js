@@ -1,11 +1,12 @@
 // timetableGenerator.js
-const XLSX = require('xlsx');
-const path = require('path');
-const { connectToMongo } = require('./db');
-const { Teacher, ClassModel, Subject, Student, Config, StudentProgress } = require('./models');
+import XLSX from 'xlsx';
+import path from 'path';
+import { connectToMongo } from './db.js';
+import { Teacher, ClassModel, Subject, Student, Config, StudentProgress } from './models.js';
 let GoogleGenerativeAI = null;
 try {
-    GoogleGenerativeAI = require('@google/generative-ai').GoogleGenerativeAI;
+    const { GoogleGenerativeAI: GGAI } = await import('@google/generative-ai');
+    GoogleGenerativeAI = GGAI;
 } catch (_) {
     GoogleGenerativeAI = null;
 }
@@ -1557,8 +1558,4 @@ async function main() {
 }
 
 // Run the main function only when executed directly
-if (require.main === module) {
-main().catch(console.error);
-}
-
-module.exports = TimetableGenerator;
+export default TimetableGenerator;
