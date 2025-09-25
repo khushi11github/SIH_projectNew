@@ -6,7 +6,7 @@ const { Teacher, Student } = require('./src/models');
 const TimetableGenerator = require('./src/timetable.js');
 
 const app = express();
-const PORT ="https://sih-project-new.vercel.app/" 
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
