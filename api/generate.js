@@ -1,5 +1,5 @@
-import { connectToMongo } from '../src/db.js';
-import TimetableGenerator from '../src/timetable.js';
+const { connectToMongo } = require('../src/db.cjs');
+const TimetableGenerator = require('../src/timetable.cjs');
 
 // Keep a singleton generator in memory for activity plans and progress
 let tgInstance = null;

@@ -1,5 +1,5 @@
-import { connectToMongo } from '../../src/db.js';
-import { Student } from '../../src/models.js';
+const { connectToMongo } = require('../../src/db.cjs');
+const { Student } = require('../../src/models.cjs');
 
 export default async function handler(req, res) {
     if (req.method === 'GET') {
