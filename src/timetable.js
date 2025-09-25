@@ -1,6 +1,8 @@
 // timetableGenerator.js
 const XLSX = require('xlsx');
 const path = require('path');
+const { connectToMongo } = require('./db');
+const { Teacher, ClassModel, Subject, Student, Config, StudentProgress } = require('./models');
 let GoogleGenerativeAI = null;
 try {
     GoogleGenerativeAI = require('@google/generative-ai').GoogleGenerativeAI;
@@ -74,6 +76,57 @@ class TimetableGenerator {
         }
     }
 
+    // Read data from MongoDB
+    async loadDataFromMongo() {
+        try {
+            const [teachers, classes, subjects, students, configDocs] = await Promise.all([
+                Teacher.find({}).lean(),
+                ClassModel.find({}).lean(),
+                Subject.find({}).lean(),
+                Student.find({}).lean(),
+                Config.find({}).lean()
+            ]);
+            this.teachers = (teachers || []).map(t => ({
+                id: String(t.id || ''),
+                name: t.name || '',
+                subjects: Array.isArray(t.subjects) ? t.subjects.map(String) : [],
+                primarySubjects: Array.isArray(t.primarySubjects) ? t.primarySubjects.map(String) : [],
+                availability: Array.isArray(t.availability) ? t.availability : [],
+                maxDailyHours: Number(t.maxDailyHours || 0),
+                rating: Number(t.rating || 0)
+            }));
+            this.classes = (classes || []).map(c => ({
+                id: String(c.id || ''),
+                name: c.name || '',
+                room: c.room || '',
+                subjects: Array.isArray(c.subjects) ? c.subjects.map(String) : [],
+                totalCredits: Number(c.totalCredits || 0)
+            }));
+            this.subjects = (subjects || []).map(s => ({
+                id: String(s.id || ''),
+                name: s.name || '',
+                credits: Number(s.credits || 1),
+                weeklySessions: Number(s.weeklySessions || 1)
+            }));
+            this.students = (students || []).map(s => ({
+                id: String(s.id || ''),
+                name: s.name || '',
+                classId: String(s.classId || ''),
+                interests: Array.isArray(s.interests) ? s.interests.map(String) : [],
+                skillLevel: Number(s.skillLevel || 3),
+                goals: s.goals || ''
+            }));
+            const rows = (configDocs || []).map(d => ({ key: String(d.key), value: d.value }));
+            this.config = this.parseConfigData(rows);
+            this.normalizeData();
+            await this.loadStudentProgressFromMongo();
+            return true;
+        } catch (error) {
+            console.error('Error loading Mongo data:', error);
+            return false;
+        }
+    }
+
  parseTeachersData(teachersData) {
     // Safely parse each teacher row
     return teachersData.map(teacher => ({
@@ -138,16 +191,26 @@ class TimetableGenerator {
 
     parseConfigData(configData) {
         const config = {};
-        configData.forEach(row => {
+        (configData || []).forEach(row => {
+            if (!row || row.key === undefined) return;
             config[row.key] = row.value;
         });
-        
+
+        const daysStr = (config.days === undefined || config.days === null) ? 'Mon,Tue,Wed,Thu,Fri' : String(config.days);
+        const startTimeStr = (config.startTime === undefined || config.startTime === null) ? '09:00' : String(config.startTime);
+        const endTimeStr = (config.endTime === undefined || config.endTime === null) ? '15:00' : String(config.endTime);
+        const periodDurationNum = (() => {
+            const v = (config.periodDuration === undefined || config.periodDuration === null) ? 60 : Number(config.periodDuration);
+            return Number.isFinite(v) && v > 0 ? v : 60;
+        })();
+        const specialPeriodsStr = (config.specialPeriods === undefined || config.specialPeriods === null) ? '' : String(config.specialPeriods);
+
         const parsed = {
-            days: config.days.split(','),
-            startTime: config.startTime,
-            endTime: config.endTime,
-            periodDuration: parseInt(config.periodDuration),
-            specialPeriods: this.parseSpecialPeriods(config.specialPeriods),
+            days: daysStr.split(',').map(s => s.trim()).filter(Boolean),
+            startTime: startTimeStr,
+            endTime: endTimeStr,
+            periodDuration: parseInt(periodDurationNum),
+            specialPeriods: this.parseSpecialPeriods(specialPeriodsStr),
             fillAllPeriods: config.fillAllPeriods === undefined ? true : String(config.fillAllPeriods).toLowerCase() === 'true'
         };
         // Optional: enable writing normalized data back to Excel
@@ -727,6 +790,10 @@ validateData() {
                 const individualActivity = plan ? plan[slotKey] || '' : '';
                 const activityKey = individualActivity ? `${individualActivity}|${slotKey}` : '';
                 const prog = activityKey ? (progress[activityKey] || {}) : {};
+                // Ensure the main timetable Subject matches the individualized activity during activity periods
+                if (type === 'Activity Period' && individualActivity) {
+                    subjectName = individualActivity;
+                }
                 data.push({
                     Day: day,
                     Time: `${slot.startTime} - ${slot.endTime}`,
@@ -1265,6 +1332,28 @@ isTeacherAlreadyAssigned(teacherId, slot) {
         this.studentProgress = map;
     }
 
+    async loadStudentProgressFromMongo() {
+        const docs = await StudentProgress.find({}).lean();
+        const map = {};
+        (docs || []).forEach(d => {
+            const sid = String(d.studentId || '');
+            if (!sid) return;
+            const recs = {};
+            const m = d.records || {};
+            // Map<String, Object> may come as plain object
+            Object.keys(m).forEach(k => {
+                const v = m[k] || {};
+                recs[k] = {
+                    status: v.status || 'pending',
+                    notes: v.notes || '',
+                    lastUpdated: v.lastUpdated || new Date().toISOString()
+                };
+            });
+            map[sid] = recs;
+        });
+        this.studentProgress = map;
+    }
+
     writeStudentProgressToExcel(dirPath) {
         try {
             const rows = [];
@@ -1285,6 +1374,24 @@ isTeacherAlreadyAssigned(teacherId, slot) {
             XLSX.writeFile(wb, path.join(dirPath, 'student_progress.xlsx'));
         } catch (e) {
             console.warn('Failed to write student progress excel:', e.message);
+        }
+    }
+
+    async writeStudentProgressToMongo() {
+        const ops = [];
+        Object.entries(this.studentProgress || {}).forEach(([sid, rec]) => {
+            const records = {};
+            Object.entries(rec || {}).forEach(([k, v]) => {
+                records[k] = {
+                    status: v.status || 'pending',
+                    notes: v.notes || '',
+                    lastUpdated: v.lastUpdated || new Date().toISOString()
+                };
+            });
+            ops.push({ updateOne: { filter: { studentId: String(sid) }, update: { $set: { studentId: String(sid), records } }, upsert: true } });
+        });
+        if (ops.length > 0) {
+            await StudentProgress.bulkWrite(ops, { ordered: false });
         }
     }
 
@@ -1395,8 +1502,9 @@ isTeacherAlreadyAssigned(teacherId, slot) {
 async function main() {
     const timetableGenerator = new TimetableGenerator();
     
-    // Load data from Excel files
-    const dataLoaded = await timetableGenerator.loadDataFromExcel('./excel_data');
+    // Connect and load from MongoDB
+    await connectToMongo(process.env.MONGO_URI);
+    const dataLoaded = await timetableGenerator.loadDataFromMongo();
     
     if (!dataLoaded) {
         console.error('Failed to load data from Excel files');

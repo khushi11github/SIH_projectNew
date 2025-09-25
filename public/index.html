@@ -7,8 +7,8 @@
 	<style>
 		:root { --bg:#f7f9fc; --card:#ffffff; --muted:#5b6778; --accent:#2563eb; --accent2:#0ea5e9; --text:#0f172a; --border:rgba(2,6,23,.12); }
 		* { box-sizing:border-box; }
-		body { font-family: Segoe UI, Arial, sans-serif; margin:0; background:var(--bg); color:var(--text); }
-		header { position:sticky; top:0; z-index:1; backdrop-filter:saturate(140%) blur(6px); background:rgba(255,255,255,.7); border-bottom:1px solid var(--border); }
+    body { font-family: Segoe UI, Arial, sans-serif; margin:0; background:#ffffff; color:#000000; }
+    header { position:sticky; top:0; z-index:1; background:#ffffff; border-bottom:1px solid #e5e7eb; }
 		.container { max-width:1200px; margin:0 auto; padding:16px 20px; }
 		h1 { margin:0; font-weight:700; letter-spacing:.2px; }
 		.subtitle { margin-top:4px; color:#6b7280; font-size:14px; }
@@ -20,7 +20,7 @@
 		.grid tbody tr:nth-child(even) td { background:#fafbff; }
 		.grid td:first-child, .grid th:first-child { position:sticky; left:0; z-index:2; background:#ffffff; }
 		.grid thead th:first-child { z-index:4; }
-		.card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:0 10px 30px rgba(2,6,23,.06); }
+    .card { background:#ffffff; border:1px solid #e5e7eb; border-radius:16px; padding:16px; }
 		.section { margin:24px auto; }
 		.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:12px 0 2px; }
 		.kpi { background:#ffffff; border:1px solid var(--border); border-radius:12px; padding:12px; color:#111827; }
@@ -33,7 +33,7 @@
 		.tabs.segmented { gap:4px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:12px; padding:6px; }
 		.tab { padding:8px 14px; border:1px solid transparent; border-radius:10px; background:#ffffff; color:#0f172a; cursor:pointer; user-select:none; transition:all .15s ease; }
 		.tab:hover { background:#f9fafb; }
-		.tab.active { background:#2563eb; border-color:#1d4ed8; color:#ffffff; box-shadow:0 6px 16px rgba(37,99,235,.18); }
+    .tab.active { background:#000000; border-color:#000000; color:#ffffff; }
 		a { color:var(--accent); }
 		.hidden { display:none; }
 	</style>
@@ -43,6 +43,7 @@
 		<div class="container">
 	<h1>Timetable Viewer</h1>
 			<div class="subtitle" id="pageContext">Load a student or teacher timetable by URL.</div>
+
 		</div>
 	</header>
 	<div class="container">

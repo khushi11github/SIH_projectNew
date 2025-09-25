@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<title>Admin Upload - Timetable</title>
+    <title>Admin Panel</title>
 	<style>
 		body { font-family: Segoe UI, Arial, sans-serif; margin:20px; color:#0f172a; }
 		.card { max-width:760px; margin:0 auto; border:1px solid #e5e7eb; border-radius:12px; padding:16px; background:#fff; }
@@ -19,46 +19,71 @@
 	</style>
 </head>
 <body>
-	<div class="card">
-		<h1>Admin Upload</h1>
-		<p class="small">Upload one or more Excel files. Filenames should match: teachers.xlsx, classes.xlsx, subjects.xlsx, students.xlsx, config.xlsx</p>
-		<form id="uploadForm">
-			<label>Excel Files</label>
-			<input id="files" name="files" type="file" multiple accept=".xlsx,.xls" />
-			<button type="submit">Upload & Regenerate</button>
-		</form>
-		<div id="status" class="status"></div>
-		<div id="uploaded" class="files"></div>
-	</div>
-	<script>
-	(function(){
-		const form = document.getElementById('uploadForm');
-		const statusEl = document.getElementById('status');
-		const uploadedEl = document.getElementById('uploaded');
-		form.onsubmit = async (e) => {
-			e.preventDefault();
-			const input = document.getElementById('files');
-			const files = input.files;
-			if (!files || !files.length) { statusEl.textContent = 'Please select files.'; statusEl.className = 'status error'; return; }
-			statusEl.textContent = 'Uploading...'; statusEl.className = 'status'; uploadedEl.textContent = '';
-			const fd = new FormData();
-			Array.from(files).forEach(f => fd.append('files', f));
-			try {
-				const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-				let json = null, text = '';
-				try { text = await res.text(); json = JSON.parse(text); } catch(_) { json = null; }
-				if (!res.ok) {
-					const msg = (json && json.error) ? json.error : (text || res.statusText || 'Unknown error');
-					statusEl.textContent = 'Upload failed: ' + msg; statusEl.className = 'status error'; return;
-				}
-				statusEl.textContent = 'Upload complete and timetable regenerated.'; statusEl.className = 'status success';
-				uploadedEl.textContent = 'Saved: ' + ((json && json.files) ? json.files.join(', ') : '');
-			} catch (e) {
-				statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'status error';
-			}
-		};
-	})();
-	</script>
+    <div class="card">
+        <h1>Admin Panel</h1>
+        <p class="small">Add or update teacher info directly in MongoDB.</p>
+        <div class="row">
+            <div>
+                <label>Teacher ID (e.g., T1)</label>
+                <input id="id" placeholder="T1" />
+            </div>
+            <div>
+                <label>Name</label>
+                <input id="name" placeholder="Dr. Smith" />
+            </div>
+        </div>
+        <div class="row">
+            <div>
+                <label>Subjects (comma separated IDs)</label>
+                <input id="subjects" placeholder="MATH,PHY" />
+            </div>
+            <div>
+                <label>Primary Subjects (comma separated IDs)</label>
+                <input id="primarySubjects" placeholder="MATH" />
+            </div>
+        </div>
+        <div class="row">
+            <div>
+                <label>Availability (e.g., Mon:09:00-15:00,Tue:09:00-15:00)</label>
+                <input id="availability" placeholder="Mon:09:00-15:00,Tue:09:00-15:00" />
+            </div>
+            <div>
+                <label>Max Daily Hours</label>
+                <input id="maxDailyHours" type="number" min="0" value="0" />
+            </div>
+        </div>
+        <div class="row">
+            <div>
+                <label>Rating</label>
+                <input id="rating" type="number" min="0" max="5" step="0.1" value="0" />
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+            <button class="primary" id="saveBtn">Save Teacher</button>
+            <span id="status" class="status"></span>
+        </div>
+    </div>
+    <script>
+        document.getElementById('saveBtn').onclick = async () => {
+            const payload = {
+                id: document.getElementById('id').value.trim(),
+                name: document.getElementById('name').value.trim(),
+                subjects: document.getElementById('subjects').value.trim(),
+                primarySubjects: document.getElementById('primarySubjects').value.trim(),
+                availability: document.getElementById('availability').value.trim(),
+                maxDailyHours: Number(document.getElementById('maxDailyHours').value || 0),
+                rating: Number(document.getElementById('rating').value || 0)
+            };
+            const status = document.getElementById('status');
+            status.textContent = 'Saving...';
+            const res = await fetch('/api/admin/teachers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(r=>r.json()).catch(()=>({ error:'Failed' }));
+            if (res && res.ok) status.textContent = 'Saved.'; else status.textContent = 'Failed: ' + (res.error||'');
+        };
+    </script>
 </body>
 </html>
 

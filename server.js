@@ -1,7 +1,8 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
+const { connectToMongo } = require('./src/db');
+const { Teacher, Student } = require('./src/models');
 const TimetableGenerator = require('./src/timetable.js');
 
 const app = express();
@@ -9,20 +10,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Multer storage to excel_data directory
-const excelDir = path.join(__dirname, 'excel_data');
-if (!fs.existsSync(excelDir)) fs.mkdirSync(excelDir, { recursive: true });
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, excelDir);
-    },
-    filename: function (req, file, cb) {
-        // Preserve original filenames
-        cb(null, file.originalname);
-    }
-});
-const upload = multer({ storage });
 
 // Serve teacher timetable page by URL: /timetable/teacher/:teacherId
 app.get('/timetable/teacher/:teacherId', (req, res) => {
@@ -43,8 +30,9 @@ app.get('/admin', (req, res) => {
 let tgInstance = null;
 async function getGenerator() {
     if (!tgInstance) {
+        await connectToMongo(process.env.MONGO_URI);
         tgInstance = new TimetableGenerator();
-        const loaded = await tgInstance.loadDataFromExcel(path.join(__dirname, 'excel_data'));
+        const loaded = await tgInstance.loadDataFromMongo();
         if (!loaded || !tgInstance.validateData()) {
             tgInstance = null;
             throw new Error('Invalid data');
@@ -185,8 +173,8 @@ app.post('/api/students/:studentId/progress', async (req, res) => {
         const { activityKey, status, notes } = req.body || {};
         if (!activityKey) return res.status(400).json({ error: 'activityKey is required' });
         const rec = tg.updateStudentProgress(studentId, activityKey, status, notes);
-        // Optionally persist snapshot immediately to output folder
-        tg.writeStudentProgressToExcel(path.join(__dirname, 'output'));
+        // Persist to MongoDB
+        await tg.writeStudentProgressToMongo();
         return res.json({ studentId, activityKey, record: rec });
     } catch (e) {
         return res.status(500).json({ error: e.message });
@@ -205,19 +193,59 @@ app.post('/api/export', async (req, res) => {
     }
 });
 
-// Admin upload endpoint: accepts multiple Excel files and triggers regeneration
-// Expected files: teachers.xlsx, classes.xlsx, subjects.xlsx, students.xlsx, config.xlsx
-app.post('/api/admin/upload', upload.array('files', 10), async (req, res) => {
+// Admin upload is disabled; data must be pre-seeded in MongoDB
+app.post('/api/admin/upload', async (req, res) => {
+    return res.status(410).json({ error: 'Upload disabled. Seed data into MongoDB instead.' });
+});
+
+// Helper endpoints to discover IDs
+app.get('/api/teachers', async (req, res) => {
     try {
-        // Invalidate current generator so next call reloads from disk
-        tgInstance = null;
-        // Optionally trigger generation immediately
-        const tg = await getGenerator();
-        // Regenerate full timetable
-        const ok = tg.generateTimetable();
-        if (!ok) return res.status(500).json({ error: 'Unable to generate timetable with uploaded data' });
-        await tg.fillFreeSlotsWithActivities();
-        return res.json({ ok: true, files: (req.files || []).map(f => f.originalname) });
+        await connectToMongo(process.env.MONGO_URI);
+        const docs = await Teacher.find({}, { _id: 0, id: 1, name: 1 }).lean();
+        return res.json({ teachers: docs });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/students', async (req, res) => {
+    try {
+        await connectToMongo(process.env.MONGO_URI);
+        const docs = await Student.find({}, { _id: 0, id: 1, name: 1, classId: 1 }).lean();
+        return res.json({ students: docs });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin: add/update teacher
+app.post('/api/admin/teachers', async (req, res) => {
+    try {
+        await connectToMongo(process.env.MONGO_URI);
+        const body = req.body || {};
+        const id = String(body.id || '').trim();
+        if (!id) return res.status(400).json({ error: 'id is required' });
+        const name = String(body.name || '').trim();
+        const subjects = Array.isArray(body.subjects) ? body.subjects.map(String) : String(body.subjects || '').split(',').map(s => String(s).trim()).filter(Boolean);
+        const primarySubjects = Array.isArray(body.primarySubjects) ? body.primarySubjects.map(String) : String(body.primarySubjects || '').split(',').map(s => String(s).trim()).filter(Boolean);
+        // availability as array of { day, startTime, endTime } or string "Mon:09:00-15:00,..."
+        let availability = [];
+        if (Array.isArray(body.availability)) {
+            availability = body.availability.map(a => ({ day: String(a.day||'').trim(), startTime: String(a.startTime||'').trim(), endTime: String(a.endTime||'').trim() })).filter(a => a.day && a.startTime && a.endTime);
+        } else if (typeof body.availability === 'string') {
+            availability = body.availability.split(',').map(v => {
+                const [day, rng] = v.split(':');
+                if (!day || !rng) return null;
+                const [startTime, endTime] = rng.split('-');
+                if (!startTime || !endTime) return null;
+                return { day: day.trim(), startTime: startTime.trim(), endTime: endTime.trim() };
+            }).filter(Boolean);
+        }
+        const maxDailyHours = Number(body.maxDailyHours || 0);
+        const rating = Number(body.rating || 0);
+        await Teacher.updateOne({ id }, { $set: { id, name, subjects, primarySubjects, availability, maxDailyHours, rating } }, { upsert: true });
+        return res.json({ ok: true });
     } catch (e) {
         return res.status(500).json({ error: e.message });
     }
