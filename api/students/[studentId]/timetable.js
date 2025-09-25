@@ -1,3 +1,36 @@
+// Keep a singleton generator in memory for timetables
+let tgInstance = null;
+let lastLoadTime = 0;
+
+async function getGenerator() {
+    // Reload every 10 minutes or if not loaded
+    const now = Date.now();
+    if (!tgInstance || (now - lastLoadTime) > 10 * 60 * 1000) {
+        const { connectToMongo } = require('../../../src/db.cjs');
+        
+        // Import the full timetable generator (ES module)
+        const TimetableGenerator = (await import('../../../src/timetable.js')).default;
+        
+        await connectToMongo(process.env.MONGO_URI);
+        tgInstance = new TimetableGenerator();
+        
+        const loaded = await tgInstance.loadDataFromMongo();
+        if (!loaded || !tgInstance.validateData()) {
+            throw new Error('Failed to load or validate data from database');
+        }
+        
+        tgInstance.initializeGenerator();
+        const success = tgInstance.generateTimetable();
+        if (!success) {
+            throw new Error('Failed to generate timetable with current constraints');
+        }
+        
+        await tgInstance.fillFreeSlotsWithActivities();
+        lastLoadTime = now;
+    }
+    return tgInstance;
+}
+
 module.exports = async (req, res) => {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', true);
@@ -14,57 +47,65 @@ module.exports = async (req, res) => {
 
     if (req.method === 'GET') {
         try {
-            // Try to load from database
-            const { connectToMongo } = require('../../../src/db.cjs');
-            const TimetableGenerator = require('../../../src/timetable.cjs');
+            const tg = await getGenerator();
             
-            await connectToMongo(process.env.MONGO_URI);
-            const tg = new TimetableGenerator();
-            const loaded = await tg.loadDataFromMongo();
+            // Use the real formatStudentTimetable method
+            const studentData = tg.formatStudentTimetable(studentId);
             
-            if (loaded && tg.validateData()) {
-                tg.initializeGenerator();
-                const ok = tg.generateTimetable();
-                if (ok) {
-                    await tg.fillFreeSlotsWithActivities();
-                    const studentData = tg.getStudentTimetable(studentId);
-                    if (studentData) {
-                        return res.json(studentData);
-                    }
-                }
+            if (!studentData || !studentData.studentName) {
+                return res.status(404).json({ error: 'Student not found' });
             }
             
-            // If database loading fails, return mock data
-            throw new Error('Database timetable generation failed');
+            // Transform data to match UI expectations
+            const transformedData = {
+                studentId: studentData.studentId,
+                name: studentData.studentName,
+                classId: studentData.classId,
+                className: studentData.className,
+                timetable: {},
+                activities: []
+            };
+            
+            // Group by days and extract activities
+            const activities = [];
+            studentData.data.forEach(row => {
+                if (!row.Day) return; // Skip empty rows
+                
+                if (!transformedData.timetable[row.Day]) {
+                    transformedData.timetable[row.Day] = [];
+                }
+                
+                transformedData.timetable[row.Day].push({
+                    time: row.Time,
+                    subject: row.Subject,
+                    teacher: row.Teacher,
+                    room: row.Room,
+                    type: row.Type.toLowerCase().replace(' ', ''),
+                    status: row.Progress,
+                    notes: row.Notes,
+                    key: row.ActivityKey
+                });
+                
+                // Collect activities
+                if (row.IndividualActivity && row.ActivityKey) {
+                    activities.push({
+                        key: row.ActivityKey,
+                        title: row.IndividualActivity,
+                        status: row.Progress || 'pending'
+                    });
+                }
+            });
+            
+            transformedData.activities = activities;
+            
+            res.json(transformedData);
             
         } catch (error) {
             console.error('Error fetching student timetable:', error.message);
-            
-            // Return mock data as fallback
-            const mockData = {
-                studentId,
-                name: `Student ${studentId}`,
-                classId: '10A',
-                timetable: {
-                    Monday: [
-                        { time: '09:00-10:00', subject: 'Math', teacher: 'Mr. Smith', type: 'regular' },
-                        { time: '10:00-11:00', subject: 'Physics', teacher: 'Ms. Johnson', type: 'regular' },
-                        { time: '11:00-12:00', subject: 'Reading Activity', teacher: 'AI Generated', type: 'activity' }
-                    ],
-                    Tuesday: [
-                        { time: '09:00-10:00', subject: 'English', teacher: 'Ms. Davis', type: 'regular' },
-                        { time: '10:00-11:00', subject: 'Chemistry', teacher: 'Mr. Wilson', type: 'regular' },
-                        { time: '11:00-12:00', subject: 'Science Experiment', teacher: 'AI Generated', type: 'activity' }
-                    ]
-                },
-                activities: [
-                    { key: 'read_1', title: 'Reading Practice', status: 'pending' },
-                    { key: 'sci_1', title: 'Science Project', status: 'completed' }
-                ],
-                note: 'Using mock data. DB error: ' + error.message
-            };
-            
-            res.json(mockData);
+            res.status(500).json({ 
+                error: error.message,
+                note: 'Failed to generate timetable from database'
+            });
         }
     } else {
         res.status(405).json({ error: 'Method not allowed' });

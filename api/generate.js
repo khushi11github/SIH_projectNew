@@ -1,10 +1,12 @@
 const { connectToMongo } = require('../src/db.cjs');
-const TimetableGenerator = require('../src/timetable.cjs');
 
 // Keep a singleton generator in memory for activity plans and progress
 let tgInstance = null;
 async function getGenerator() {
     if (!tgInstance) {
+        // Import the full timetable generator (ES module)
+        const TimetableGenerator = (await import('../src/timetable.js')).default;
+        
         await connectToMongo(process.env.MONGO_URI);
         tgInstance = new TimetableGenerator();
         const loaded = await tgInstance.loadDataFromMongo();
