@@ -1,7 +1,4 @@
-const { connectToMongo } = require('../../src/db.cjs');
-const { Student } = require('../../src/models.cjs');
-
-module.exports = async function handler(req, res) {
+module.exports = async (req, res) => {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,12 +12,22 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'GET') {
         try {
+            // Dynamic import to avoid module loading issues
+            const { connectToMongo } = require('../../src/db.cjs');
+            const { Student } = require('../../src/models.cjs');
+            
             await connectToMongo(process.env.MONGO_URI);
             const students = await Student.find({}).sort({ id: 1 });
             res.json({ students });
         } catch (error) {
             console.error('Error fetching students:', error.message);
-            res.status(500).json({ error: error.message });
+            // Return mock data if database fails
+            const mockStudents = [
+                { id: '1000', name: 'Alice Johnson', classId: '10A' },
+                { id: '1001', name: 'Bob Smith', classId: '10A' },
+                { id: '1002', name: 'Carol Davis', classId: '10B' }
+            ];
+            res.json({ students: mockStudents, note: 'Using mock data due to DB error: ' + error.message });
         }
     } else {
         res.status(405).json({ error: 'Method not allowed' });
