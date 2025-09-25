@@ -1,6 +1,3 @@
-const { connectToMongo } = require('../../src/db.cjs');
-const { Student } = require('../../src/models.cjs');
-
 module.exports = async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', true);
@@ -15,14 +12,17 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'GET') {
         try {
-            await connectToMongo(process.env.MONGO_URI);
-            const students = await Student.find({}).sort({ id: 1 });
-            res.json({ students });
+            res.status(200).json({ 
+                message: 'API is working!', 
+                timestamp: new Date().toISOString(),
+                method: req.method,
+                url: req.url
+            });
         } catch (error) {
-            console.error('Error fetching students:', error.message);
+            console.error('Error in test API:', error);
             res.status(500).json({ error: error.message });
         }
     } else {
         res.status(405).json({ error: 'Method not allowed' });
     }
-}
+};

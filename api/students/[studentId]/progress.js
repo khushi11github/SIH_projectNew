@@ -23,7 +23,7 @@ async function getGenerator() {
     return tgInstance;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     const { studentId } = req.query;
 
     if (req.method === 'POST') {

@@ -1,7 +1,7 @@
 const { connectToMongo } = require('../../src/db.cjs');
 const { Teacher } = require('../../src/models.cjs');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
         try {
             await connectToMongo(process.env.MONGO_URI);

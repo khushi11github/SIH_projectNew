@@ -3,7 +3,7 @@ const { Teacher } = require('../../src/models.cjs');
 
 let tgInstance = null; // Reset generator when data changes
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     if (req.method === 'POST') {
         try {
             await connectToMongo(process.env.MONGO_URI);
