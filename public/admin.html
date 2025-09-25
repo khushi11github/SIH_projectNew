@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Admin Upload - Timetable</title>
+	<style>
+		body { font-family: Segoe UI, Arial, sans-serif; margin:20px; color:#0f172a; }
+		.card { max-width:760px; margin:0 auto; border:1px solid #e5e7eb; border-radius:12px; padding:16px; background:#fff; }
+		h1 { margin:0 0 12px; }
+		label { display:block; margin-top:10px; font-weight:600; }
+		input[type=file] { display:block; margin-top:6px; }
+		button { margin-top:16px; padding:10px 14px; border:1px solid #1d4ed8; background:#2563eb; color:#fff; border-radius:8px; cursor:pointer; }
+		.status { margin-top:10px; color:#334155; }
+		.small { color:#6b7280; font-size:12px; }
+		.success { color:#065f46; }
+		.error { color:#b91c1c; }
+		.files { margin-top:10px; }
+	</style>
+</head>
+<body>
+	<div class="card">
+		<h1>Admin Upload</h1>
+		<p class="small">Upload one or more Excel files. Filenames should match: teachers.xlsx, classes.xlsx, subjects.xlsx, students.xlsx, config.xlsx</p>
+		<form id="uploadForm">
+			<label>Excel Files</label>
+			<input id="files" name="files" type="file" multiple accept=".xlsx,.xls" />
+			<button type="submit">Upload & Regenerate</button>
+		</form>
+		<div id="status" class="status"></div>
+		<div id="uploaded" class="files"></div>
+	</div>
+	<script>
+	(function(){
+		const form = document.getElementById('uploadForm');
+		const statusEl = document.getElementById('status');
+		const uploadedEl = document.getElementById('uploaded');
+		form.onsubmit = async (e) => {
+			e.preventDefault();
+			const input = document.getElementById('files');
+			const files = input.files;
+			if (!files || !files.length) { statusEl.textContent = 'Please select files.'; statusEl.className = 'status error'; return; }
+			statusEl.textContent = 'Uploading...'; statusEl.className = 'status'; uploadedEl.textContent = '';
+			const fd = new FormData();
+			Array.from(files).forEach(f => fd.append('files', f));
+			try {
+				const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+				let json = null, text = '';
+				try { text = await res.text(); json = JSON.parse(text); } catch(_) { json = null; }
+				if (!res.ok) {
+					const msg = (json && json.error) ? json.error : (text || res.statusText || 'Unknown error');
+					statusEl.textContent = 'Upload failed: ' + msg; statusEl.className = 'status error'; return;
+				}
+				statusEl.textContent = 'Upload complete and timetable regenerated.'; statusEl.className = 'status success';
+				uploadedEl.textContent = 'Saved: ' + ((json && json.files) ? json.files.join(', ') : '');
+			} catch (e) {
+				statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'status error';
+			}
+		};
+	})();
+	</script>
+</body>
+</html>
+

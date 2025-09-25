@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Timetable Viewer</title>
+	<style>
+		:root { --bg:#f7f9fc; --card:#ffffff; --muted:#5b6778; --accent:#2563eb; --accent2:#0ea5e9; --text:#0f172a; --border:rgba(2,6,23,.12); }
+		* { box-sizing:border-box; }
+		body { font-family: Segoe UI, Arial, sans-serif; margin:0; background:var(--bg); color:var(--text); }
+		header { position:sticky; top:0; z-index:1; backdrop-filter:saturate(140%) blur(6px); background:rgba(255,255,255,.7); border-bottom:1px solid var(--border); }
+		.container { max-width:1200px; margin:0 auto; padding:16px 20px; }
+		h1 { margin:0; font-weight:700; letter-spacing:.2px; }
+		.subtitle { margin-top:4px; color:#6b7280; font-size:14px; }
+		.controls { display:none; }
+		.grid { border-collapse: separate; border-spacing:0; width:100%; overflow:hidden; border-radius:14px; }
+		.grid th, .grid td { border-bottom:1px solid var(--border); padding:10px 12px; text-align:left; }
+		.grid thead th { position:sticky; top:0; background:rgba(255,255,255,.95); backdrop-filter:saturate(140%) blur(6px); z-index:3; }
+		.grid.wide { width:max-content; }
+		.grid tbody tr:nth-child(even) td { background:#fafbff; }
+		.grid td:first-child, .grid th:first-child { position:sticky; left:0; z-index:2; background:#ffffff; }
+		.grid thead th:first-child { z-index:4; }
+		.card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:0 10px 30px rgba(2,6,23,.06); }
+		.section { margin:24px auto; }
+		.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:12px 0 2px; }
+		.kpi { background:#ffffff; border:1px solid var(--border); border-radius:12px; padding:12px; color:#111827; }
+		.badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#1e40af; border:1px solid #e5e7eb; font-size:12px; }
+		.pill { display:inline-block; padding:6px 10px; border-radius:999px; background:#e0f2fe; color:#075985; border:1px solid #bae6fd; font-size:12px; }
+		.muted { color:#6b7280; }
+		.panel { background:#ffffff; border:1px solid var(--border); border-radius:12px; padding:12px; }
+		.panel.table-scroll { overflow:auto; max-height:70vh; }
+		.tabs { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 12px; }
+		.tabs.segmented { gap:4px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:12px; padding:6px; }
+		.tab { padding:8px 14px; border:1px solid transparent; border-radius:10px; background:#ffffff; color:#0f172a; cursor:pointer; user-select:none; transition:all .15s ease; }
+		.tab:hover { background:#f9fafb; }
+		.tab.active { background:#2563eb; border-color:#1d4ed8; color:#ffffff; box-shadow:0 6px 16px rgba(37,99,235,.18); }
+		a { color:var(--accent); }
+		.hidden { display:none; }
+	</style>
+</head>
+<body>
+	<header>
+		<div class="container">
+	<h1>Timetable Viewer</h1>
+			<div class="subtitle" id="pageContext">Load a student or teacher timetable by URL.</div>
+		</div>
+	</header>
+	<div class="container">
+
+		<div class="section card" id="studentSection">
+			<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+				<h3 style="margin:0">Student Timetable</h3>
+				<span class="badge" id="studentBadge"></span>
+			</div>
+			<div class="kpis">
+				<div class="kpi">Student: <span id="studentName" class="pill">—</span></div>
+				<div class="kpi">Class: <span id="studentClass" class="pill">—</span></div>
+				<div class="kpi">Status: <span id="studentStatus" class="pill">—</span></div>
+				<div class="kpi">Rows: <span id="studentRows" class="pill">0</span></div>
+			</div>
+			<div class="tabs segmented" id="dayTabs"></div>
+			<div id="studentGrid" class="panel" style="overflow:auto;max-height:560px"></div>
+    </div>
+
+		<div class="section card" id="teacherSection">
+			<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+				<h3 style="margin:0">Teacher Timetable</h3>
+				<span class="badge" id="teacherBadge"></span>
+			</div>
+			<div class="kpis">
+				<div class="kpi">Teacher: <span id="teacherName" class="pill">—</span></div>
+				<div class="kpi">Subjects: <span id="teacherSubjects" class="pill">—</span></div>
+    </div>
+			<div id="teacherGrid" class="panel table-scroll"></div>
+    </div>
+
+	</div>
+
+	<!-- Student Timetable UI (details + activities) -->
+	<div id="student-ui" class="container section card" style="max-width:1100px;">
+		<h2 style="margin:0 0 12px">Student Timetable</h2>
+		<div id="status" class="muted" style="margin-bottom:8px"></div>
+		<div id="tableWrap" class="panel" style="overflow:auto;max-height:480px"></div>
+	<div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+			<button id="regenActivities" class="secondary">Regenerate Activities</button>
+			<small class="muted">Rebuilds plans using AI diversity rules</small>
+		</div>
+		<div id="activitiesPanel" class="panel" style="margin-top:12px"></div>
+</div>
+<script>
+(function(){
+	const byId = (id) => document.getElementById(id);
+	const statusEl = byId('status');
+	const tableWrap = byId('tableWrap');
+	const activitiesPanel = byId('activitiesPanel');
+	const pageContext = document.getElementById('pageContext');
+	const studentSection = document.getElementById('studentSection');
+	const teacherSection = document.getElementById('teacherSection');
+	const studentBadge = document.getElementById('studentBadge');
+	const studentRowsEl = document.getElementById('studentRows');
+	const studentStatus = document.getElementById('studentStatus');
+	const teacherNameEl = document.getElementById('teacherName');
+	const teacherSubjectsEl = document.getElementById('teacherSubjects');
+	let teacherRowsCache = [];
+	
+
+    byId('regenActivities').onclick = async () => {
+        statusEl.textContent = 'Regenerating activities...';
+        const prevDay = selectedDay;
+        await fetch('/api/generate', { cache: 'no-store' }).then(r=>r.json()).catch(()=>{});
+        const parts = location.pathname.split('/').filter(Boolean);
+        if (parts[0] === 'timetable' && parts.length === 2) {
+            await loadStudent(decodeURIComponent(parts[1]), prevDay);
+        }
+        statusEl.textContent = 'Activities regenerated.';
+    };
+
+	let studentRowsCache = [];
+	let selectedDay = '';
+    async function loadStudent(id, preferDay){
+        const ts = Date.now();
+        const res = await fetch(`/api/students/${encodeURIComponent(id)}/timetable?_=${ts}`, { cache: 'no-store' });
+		if(!res.ok){ statusEl.textContent = 'Failed to load'; return; }
+		const json = await res.json();
+		const rows = json.data || [];
+		studentRowsCache = rows;
+		buildDayTabs(rows);
+        const days = getDaysFromRows(rows);
+        const useDay = (preferDay && days.includes(preferDay)) ? preferDay : (days[0] || '');
+        if (useDay) {
+            selectedDay = useDay;
+            const subset = filterRowsByDay(rows, useDay);
+            renderTable(subset, id);
+            renderActivitiesBelow(subset);
+        } else {
+            renderTable(rows, id);
+            renderActivitiesBelow(rows);
+        }
+		// Fallback fetch if name/class missing
+        if (!json.studentName || !json.classId) {
+			try {
+                const info = await fetch(`/api/students/${encodeURIComponent(id)}?_=${ts}`, { cache: 'no-store' }).then(r=>r.json());
+				json.studentName = json.studentName || info.studentName || '';
+				json.classId = json.classId || info.classId || '';
+				json.className = json.className || info.className || '';
+			} catch(_) {}
+		}
+		studentBadge.textContent = `${(json.studentName||'Student')} (${id}) • Class: ${(json.classId||'—')}`;
+		studentRowsEl.textContent = String(rows.length);
+		studentStatus.textContent = 'Loaded';
+		const sNameEl = document.getElementById('studentName');
+		const sClassEl = document.getElementById('studentClass');
+		if (sNameEl) sNameEl.textContent = json.studentName || '—';
+		if (sClassEl) sClassEl.textContent = json.classId || '—';
+	}
+	function getDaysFromRows(rows){
+		const set = new Set(rows.map(r => r.Day).filter(Boolean));
+		return Array.from(set);
+	}
+	function filterRowsByDay(rows, day){
+		return rows.filter(r => r && r.Day === day || Object.keys(r||{}).length===0);
+	}
+	function buildDayTabs(rows){
+		const days = getDaysFromRows(rows);
+		const el = document.getElementById('dayTabs');
+		if (!el) return;
+		el.innerHTML = '';
+		const nice = { 'Monday':'Mon','Tuesday':'Tue','Wednesday':'Wed','Thursday':'Thu','Friday':'Fri','Saturday':'Sat','Sunday':'Sun' };
+		days.forEach(day => {
+			const b = document.createElement('button');
+			b.className = 'tab' + (day === selectedDay ? ' active' : '');
+			b.textContent = nice[day] || day;
+			b.onclick = () => {
+				selectedDay = day;
+				document.querySelectorAll('#dayTabs .tab').forEach(t => t.classList.remove('active'));
+				b.classList.add('active');
+				const sid = (studentBadge.textContent.match(/\(([^)]+)\)/)||[])[1] || '';
+				const subset = filterRowsByDay(studentRowsCache, day);
+				renderTable(subset, sid);
+				renderActivitiesBelow(subset);
+			};
+			el.appendChild(b);
+		});
+		if (days.length && !selectedDay) {
+			const first = el.querySelector('.tab');
+			if (first) first.classList.add('active');
+		}
+	}
+	function renderTable(rows, sid){
+		const cols = ['Day','Time','Subject','Teacher','Room','Type','Progress','Notes'];
+		let html = '<table class="grid">';
+		html += '<thead><tr>' + cols.map(c=>`<th>${c}</th>`).join('') + '<th>Actions</th></tr></thead>';
+		html += '<tbody>';
+		rows.forEach(r => {
+			if(Object.keys(r).length===0){ html += '<tr><td colspan="10" style="height:8px"></td></tr>'; return; }
+			const currentStatus = r.Progress || '';
+			html += '<tr>' + cols.map(c=>`<td>${escapeHtml(r[c]||'')}</td>`).join('');
+			const activityKey = r.ActivityKey || '';
+			if(activityKey){
+				html += `<td>
+					<select data-key="${activityKey}" data-sid="${sid}" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-right:6px;background:#ffffff;color:#0f172a">
+						<option value="">Set status</option>
+						<option value="todo"${currentStatus==='todo'?' selected':''}>To do</option>
+						<option value="in_progress"${currentStatus==='in_progress'?' selected':''}>In progress</option>
+						<option value="done"${currentStatus==='done'?' selected':''}>Done</option>
+					</select>
+					<button data-key="${activityKey}" data-sid="${sid}" class="saveBtn">Save</button>
+				</td>`;
+			}else{
+				html += '<td class="muted">—</td>';
+			}
+			html += '</tr>';
+		});
+		html += '</tbody></table>';
+		tableWrap.innerHTML = html;
+		bindActions();
+	}
+	function renderActivitiesBelow(rows){
+		const items = rows.filter(r => r && r.Type === 'Activity Period');
+		if(items.length === 0){ activitiesPanel.innerHTML = '<em class="muted">No activity periods found.</em>'; return; }
+		let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">';
+		items.forEach(r => {
+			const act = r.IndividualActivity || '';
+			html += `<div class="panel" style="border-radius:10px">
+				<div style="font-weight:600;margin-bottom:6px">${escapeHtml(r.Day)} ${escapeHtml(r.Time)}</div>
+				<div>Activity: <span style="font-weight:600;color:var(--accent)">${escapeHtml(act || '—')}</span></div>
+			</div>`;
+		});
+		html += '</div>';
+		activitiesPanel.innerHTML = html;
+	}
+	function bindActions(){
+		const btns = tableWrap.querySelectorAll('.saveBtn');
+		btns.forEach(btn => {
+			btn.onclick = async (e) => {
+				const key = e.currentTarget.getAttribute('data-key');
+				const sid = e.currentTarget.getAttribute('data-sid');
+				const select = tableWrap.querySelector(`select[data-key="${CSS.escape(key)}"][data-sid="${CSS.escape(sid)}"]`);
+				const status = select ? select.value : '';
+				if(!status){ statusEl.textContent='Choose a status'; return; }
+				statusEl.textContent = 'Saving...';
+				await fetch(`/api/students/${encodeURIComponent(sid)}/progress`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ activityKey: key, status })
+				});
+				statusEl.textContent = 'Saved. Reload to see updates.';
+			};
+		});
+	}
+	function escapeHtml(s){
+		return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+	}
+
+	// URL-based auto loading logic
+	document.addEventListener('DOMContentLoaded', async () => {
+		const path = location.pathname.replace(/\/+$/,'');
+		const parts = path.split('/').filter(Boolean);
+		let handled = false;
+		if (path.indexOf('/timetable/teacher/') !== -1) {
+			// Immediately remove student UI on teacher pages
+			if (studentSection && studentSection.parentNode) studentSection.parentNode.removeChild(studentSection);
+			const studentUi = document.getElementById('student-ui');
+			if (studentUi && studentUi.parentNode) studentUi.parentNode.removeChild(studentUi);
+		}
+		if (parts[0] === 'timetable' && parts.length === 2) {
+			const studentId = decodeURIComponent(parts[1]);
+			pageContext.textContent = `Viewing student timetable for ID ${studentId}`;
+			teacherSection.classList.add('hidden');
+			await loadStudent(studentId);
+			handled = true;
+		}
+		if (parts[0] === 'timetable' && parts[1] === 'teacher' && parts.length === 3) {
+			const teacherId = decodeURIComponent(parts[2]);
+			pageContext.textContent = `Viewing teacher timetable for ID ${teacherId}`;
+			// Remove student UI entirely for teacher pages
+			if (studentSection && studentSection.parentNode) studentSection.parentNode.removeChild(studentSection);
+			const studentUi = document.getElementById('student-ui');
+			if (studentUi && studentUi.parentNode) studentUi.parentNode.removeChild(studentUi);
+			await renderTeacherTable(teacherId);
+			handled = true;
+		}
+		if (!handled) {
+			pageContext.textContent = 'Load a student or teacher timetable by URL or controls.';
+		}
+	});
+})();
+</script>
+	<script>
+    let cachedData = null;
+
+    function timesFromSchedule(info) {
+        const set = new Set();
+        const order = [];
+        Object.values(info.schedule).forEach(rows => {
+            (rows || []).forEach(r => {
+                const t = r.time; // e.g., 08:00-09:00
+                if (t && !set.has(t)) { set.add(t); order.push(t); }
+            });
+        });
+        // Sort by start time
+        return order.sort((a,b) => a.localeCompare(b));
+    }
+
+    function renderStudentTable(className) {
+        const container = document.getElementById('studentGrid');
+        container.innerHTML = '';
+        if (!cachedData) return;
+        const classes = cachedData.classes || {};
+        const info = classes[className];
+        if (!info) { container.textContent = 'Class not found'; return; }
+        const days = Object.keys(info.schedule);
+        const times = timesFromSchedule(info);
+        const table = document.createElement('table');
+        table.className = 'grid';
+        const thead = document.createElement('thead');
+        thead.innerHTML = `<tr><th>Day / Time</th>${times.map(t=>`<th>${t}</th>`).join('')}</tr>`;
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        days.forEach(day => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td><b>${day}</b></td>`;
+            const rows = info.schedule[day] || [];
+            const map = Object.fromEntries(rows.map(r => [r.time, r]));
+            times.forEach(t => {
+                const r = map[t];
+                if (!r) { tr.innerHTML += '<td></td>'; return; }
+                const subj = r.subject;
+                const isActivity = r.teacher === 'Activity';
+                const isLunch = subj === 'Lunch Break' || r.type === 'Special Period';
+                const text = isLunch ? 'Lunch Break' : (subj || '');
+                const td = document.createElement('td');
+                td.textContent = text;
+                if (isActivity) td.style.background = '#f9fff0';
+                if (isLunch) td.style.background = '#ffe8cc';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
+    }
+
+    async function renderTeacherTable(teacherId) {
+        const container = document.getElementById('teacherGrid');
+        container.innerHTML = 'Loading...';
+        if (!teacherId) { container.textContent = 'Enter a teacher ID'; return; }
+        try {
+            // Ensure data is generated at least once (non-blocking)
+            fetch('/api/generate').catch(()=>{});
+
+            let res = await fetch('/api/teachers/' + encodeURIComponent(teacherId));
+            if (!res.ok) {
+                await fetch('/api/generate').catch(()=>{});
+                res = await fetch('/api/teachers/' + encodeURIComponent(teacherId));
+            }
+            if (!res.ok) {
+                let reason = '';
+                try { const errObj = await res.json(); reason = errObj && errObj.error ? ` (${errObj.error})` : ''; } catch(_) {}
+                container.innerHTML = `Failed to load timetable${reason}. <div style="margin-top:6px"><a href="/api/teachers/${encodeURIComponent(teacherId)}" target="_blank">Open API response</a></div>`;
+                return;
+            }
+
+            // Robust parse
+            const raw = await res.text();
+            let json = null;
+            try { json = JSON.parse(raw); } catch (_) { json = null; }
+            if (!json || typeof json !== 'object') {
+                container.innerHTML = `Unexpected response for teacher timetable.<pre style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;padding:8px;border-radius:8px;margin-top:8px">${escapeHtml(raw || '')}</pre>`;
+                return;
+            }
+
+            // Header info (query elements locally to avoid scope issues)
+            const name = json && json.name ? json.name : `Teacher ${teacherId}`;
+            const subjects = Array.isArray(json && json.subjectNames) ? json.subjectNames : [];
+            const nameEl = document.getElementById('teacherName');
+            const subjectsEl = document.getElementById('teacherSubjects');
+            if (nameEl) nameEl.textContent = name;
+            if (subjectsEl) subjectsEl.textContent = subjects.join(', ') || '—';
+            const badge = document.getElementById('teacherBadge');
+            if (badge) badge.textContent = `${name} (${teacherId})`;
+
+            const rows = Array.isArray(json && json.data) ? (json.data || []) : [];
+            if (!rows.length) { container.innerHTML = 'No timetable available for this teacher.'; return; }
+            teacherRowsCache = rows;
+
+            // Render full-week matrix: Time rows x Day columns (cells show Class)
+            container.innerHTML = '';
+            renderTeacherMatrix(container, rows);
+        } catch (e) {
+            console.error('Teacher render error', e);
+            container.innerHTML = `Error loading teacher timetable. <div style="margin-top:6px"><a href="/api/teachers/${encodeURIComponent(teacherId)}" target="_blank">Open API response</a></div>`;
+        }
+    }
+
+    function renderTeacherMatrix(container, rows) {
+        // Build unique ordered days and times
+        const orderIndex = (d) => {
+            const map = {
+                'Mon':1,'Monday':1,
+                'Tue':2,'Tues':2,'Tuesday':2,
+                'Wed':3,'Wednesday':3,
+                'Thu':4,'Thur':4,'Thursday':4,
+                'Fri':5,'Friday':5,
+                'Sat':6,'Saturday':6,
+                'Sun':7,'Sunday':7
+            };
+            return map[d] || 99;
+        };
+        const apiDays = Array.from(new Set(rows.map(r => r.Day).filter(Boolean)));
+        const days = apiDays.slice().sort((a,b) => orderIndex(a) - orderIndex(b));
+        const times = Array.from(new Set(rows.map(r => (r.Time||'').replace(/\s+/g,'')).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+
+        // Map (time, day) -> class label
+        const cell = {};
+        rows.forEach(r => {
+            const d = r.Day;
+            const t = (r.Time||'').replace(/\s+/g,'');
+            if (!d || !t) return;
+            cell[`${t}|${d}`] = (r.Status === 'Teaching') ? (r.Class || '') : (r.Room || 'Staff Room');
+        });
+
+        const table = document.createElement('table');
+        table.className = 'grid wide';
+        const thead = document.createElement('thead');
+        thead.innerHTML = `<tr><th>Time \\ Day</th>${days.map(d=>`<th>${d}</th>`).join('')}</tr>`;
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        times.forEach(t => {
+            const displayTime = t.replace(/-/g, ' - ');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td><b>${displayTime}</b></td>`;
+            days.forEach(d => {
+                const td = document.createElement('td');
+                td.textContent = cell[`${t}|${d}`] || '';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
+    }
+
+    async function generateAll() {
+        const res = await fetch('/api/generate');
+        cachedData = await res.json();
+        const classId = document.getElementById('classId')?.value?.trim?.() || '';
+        if (classId) renderStudentTable(classId);
+    }
+	async function loadClass() { /* unused in current UI */ }
+	async function loadTeacher() { /* unused in current UI */ }
+    // Removed manual controls; URL controls the view.
+    // document.getElementById('generate').addEventListener('click', generateAll);
+    document.getElementById('showStudent')?.addEventListener('click', () => {});
+    document.getElementById('showTeacher')?.addEventListener('click', () => {});
+	</script>
+</body>
+</html>
