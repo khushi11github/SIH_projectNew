@@ -77,21 +77,37 @@ function TeacherTimetable() {
     <div className="container">
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-          <h1>Teacher Timetable</h1>
+          <h1 style={{ margin: 0 }}>Teacher Timetable</h1>
           <span className="badge">{data.name} ({teacherId})</span>
         </div>
         
         <div className="kpis">
-          <div className="kpi">Teacher: <span className="pill">{data.name || '—'}</span></div>
-          <div className="kpi">Subjects: <span className="pill">{data.subjectNames?.join(', ') || '—'}</span></div>
+          <div className="kpi">
+            Teacher: <span className="pill">{data.name || '—'}</span>
+          </div>
+          <div className="kpi">
+            Subjects: <span className="pill">{data.subjectNames?.join(', ') || '—'}</span>
+          </div>
+          <div className="kpi">
+            Classes: <span className="pill">{times.length} Time Slots</span>
+          </div>
+          <div className="kpi">
+            Days: <span className="pill">{days.length} Working Days</span>
+          </div>
         </div>
 
         <div className="panel table-scroll">
-          <table className="grid" style={{ width: 'max-content' }}>
+          <table className="grid" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
               <tr>
-                <th>Time \\ Day</th>
-                {days.map(d => <th key={d}>{d}</th>)}
+                <th style={{ minWidth: '120px' }}>
+                  Time \\ Day
+                </th>
+                {days.map(d => (
+                  <th key={d} style={{ minWidth: '140px', textAlign: 'center' }}>
+                    {d}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -99,11 +115,34 @@ function TeacherTimetable() {
                 const displayTime = t.replace(/-/g, ' - ')
                 return (
                   <tr key={t}>
-                    <td><strong>{displayTime}</strong></td>
+                    <td className="time-header">
+                      {displayTime}
+                    </td>
                     {days.map(d => {
                       const cellValue = cell[`${t}|${d}`] || ''
+                      const isTeaching = cellValue && cellValue !== 'Staff Room'
                       return (
-                        <td key={d}>{cellValue}</td>
+                        <td key={d} className={`timetable-cell ${isTeaching ? 'teaching' : 'free'}`}>
+                          {isTeaching ? (
+                            <div>
+                              <div style={{ fontWeight: '600', textAlign: 'center' }}>
+                                {cellValue}
+                              </div>
+                              <div className="status-indicator teaching">
+                                Teaching
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <div style={{ fontWeight: '500', textAlign: 'center' }}>
+                                {cellValue || 'Available'}
+                              </div>
+                              <div className="status-indicator free">
+                                Available
+                              </div>
+                            </div>
+                          )}
+                        </td>
                       )
                     })}
                   </tr>

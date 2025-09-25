@@ -8,6 +8,26 @@ function StudentTimetable() {
   const [selectedDay, setSelectedDay] = useState('')
   const [days, setDays] = useState([])
 
+  const getProgressBadge = (progress, type) => {
+    if (type === 'Activity Period') {
+      return <span className="progress-badge activity">Activity Period</span>
+    }
+    if (type === 'Special Period') {
+      return <span className="progress-badge special">Special Period</span>
+    }
+    
+    if (progress) {
+      const badges = {
+        'todo': <span className="progress-badge todo">To Do</span>,
+        'in_progress': <span className="progress-badge in-progress">In Progress</span>,
+        'done': <span className="progress-badge done">Done</span>
+      }
+      return badges[progress] || <span className="progress-badge regular">Regular Class</span>
+    }
+    
+    return <span className="progress-badge regular">Regular Class</span>
+  }
+
   useEffect(() => {
     const fetchTimetable = async () => {
       try {
@@ -94,10 +114,18 @@ function StudentTimetable() {
         </div>
         
         <div className="kpis">
-          <div className="kpi">Student: <span className="pill">{data.studentName || '—'}</span></div>
-          <div className="kpi">Class: <span className="pill">{data.classId || '—'}</span></div>
-          <div className="kpi">Status: <span className="pill">Loaded</span></div>
-          <div className="kpi">Rows: <span className="pill">{data.data?.length || 0}</span></div>
+          <div className="kpi">
+            Student: <span className="pill">{data.studentName || '—'}</span>
+          </div>
+          <div className="kpi">
+            Class: <span className="pill">{data.classId || '—'}</span>
+          </div>
+          <div className="kpi">
+            Status: <span className="pill">Loaded</span>
+          </div>
+          <div className="kpi">
+            Rows: <span className="pill">{data.data?.length || 0}</span>
+          </div>
         </div>
 
         {days.length > 0 && (
@@ -138,26 +166,29 @@ function StudentTimetable() {
                 return (
                   <tr key={index}>
                     <td>{row.Day}</td>
-                    <td>{row.Time}</td>
-                    <td>{row.Subject}</td>
+                    <td style={{ fontWeight: '600' }}>{row.Time}</td>
+                    <td style={{ fontWeight: '500' }}>{row.Subject}</td>
                     <td>{row.Teacher}</td>
                     <td>{row.Room}</td>
                     <td>{row.Type}</td>
-                    <td>{row.Progress}</td>
-                    <td>{row.Notes}</td>
+                    <td>{getProgressBadge(row.Progress, row.Type)}</td>
+                    <td style={{ color: '#64748b', fontSize: '13px' }}>{row.Notes || '—'}</td>
                     <td>
                       {row.ActivityKey ? (
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <select
                             value={row.Progress || ''}
                             onChange={(e) => handleProgressUpdate(row.ActivityKey, e.target.value)}
-                            style={{ padding: '6px 8px', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                            className="status-dropdown"
                           >
                             <option value="">Set status</option>
                             <option value="todo">To do</option>
                             <option value="in_progress">In progress</option>
                             <option value="done">Done</option>
                           </select>
+                          <button className="action-button" title="Edit notes">
+                            Edit
+                          </button>
                         </div>
                       ) : (
                         <span className="muted">—</span>
@@ -170,26 +201,46 @@ function StudentTimetable() {
           </table>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
-          <button onClick={handleRegenerateActivities}>Regenerate Activities</button>
-          <small className="muted">Rebuilds plans using AI diversity rules</small>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '20px', padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+          <button className="regenerate" onClick={handleRegenerateActivities}>
+            Regenerate Activities
+          </button>
+          <small className="muted" style={{ fontSize: '13px' }}>Rebuilds plans using AI diversity rules</small>
         </div>
 
-        <div className="panel" style={{ marginTop: '12px' }}>
-          <h4>Activity Periods</h4>
+        <div className="panel" style={{ marginTop: '20px' }}>
+          <h4 style={{ marginBottom: '16px', color: '#1e293b' }}>
+            Activity Periods
+          </h4>
           {filteredData.filter(row => row.Type === 'Activity Period').length === 0 ? (
-            <em className="muted">No activity periods found.</em>
+            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+              <em>No activity periods found for {selectedDay}.</em>
+            </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
               {filteredData
                 .filter(row => row.Type === 'Activity Period')
                 .map((row, index) => (
-                  <div key={index} className="panel" style={{ borderRadius: '10px' }}>
-                    <div style={{ fontWeight: '600', marginBottom: '6px' }}>
+                  <div key={index} style={{ 
+                    background: '#fefce8', 
+                    border: '1px solid #fde68a', 
+                    borderRadius: '12px', 
+                    padding: '16px',
+                    transition: 'transform 0.2s ease',
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
+                  >
+                    <div style={{ 
+                      fontWeight: '600', 
+                      marginBottom: '8px', 
+                      color: '#92400e'
+                    }}>
                       {row.Day} {row.Time}
                     </div>
-                    <div>
-                      Activity: <span style={{ fontWeight: '600', color: '#000' }}>
+                    <div style={{ color: '#451a03' }}>
+                      <strong>Activity:</strong> <span style={{ fontWeight: '600', color: '#92400e' }}>
                         {row.IndividualActivity || '—'}
                       </span>
                     </div>

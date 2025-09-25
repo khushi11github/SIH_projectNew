@@ -55,79 +55,105 @@ function AdminPanel() {
   return (
     <div className="container">
       <div className="card">
-        <h1>Admin Panel</h1>
-        <p className="muted">Add or update teacher info directly in MongoDB.</p>
+        <div style={{ marginBottom: '24px' }}>
+          <h1 style={{ margin: 0 }}>Admin Panel</h1>
+          <p className="muted" style={{ margin: '8px 0 0 0', fontSize: '16px' }}>Add or update teacher information in the system</p>
+        </div>
         
         <form onSubmit={handleSubmit}>
-          <div className="row">
-            <div>
-              <label>Teacher ID (e.g., T1)</label>
+          <div className="form-row">
+            <div className="form-group">
+              <label>
+                Teacher ID (e.g., T1)
+              </label>
               <input
                 name="id"
                 value={formData.id}
                 onChange={handleInputChange}
                 placeholder="T1"
                 required
+                style={{ width: '100%' }}
               />
             </div>
-            <div>
-              <label>Name</label>
+            <div className="form-group">
+              <label>
+                Teacher Name
+              </label>
               <input
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
                 placeholder="Dr. Smith"
                 required
+                style={{ width: '100%' }}
               />
             </div>
           </div>
           
-          <div className="row">
-            <div>
-              <label>Subjects (comma separated IDs)</label>
+          <div className="form-row">
+            <div className="form-group">
+              <label>
+                Subjects (comma separated)
+              </label>
               <input
                 name="subjects"
                 value={formData.subjects}
                 onChange={handleInputChange}
-                placeholder="MATH,PHY"
+                placeholder="MATH,PHY,CHEM"
+                style={{ width: '100%' }}
               />
             </div>
-            <div>
-              <label>Primary Subjects (comma separated IDs)</label>
+            <div className="form-group">
+              <label>
+                Primary Subjects
+              </label>
               <input
                 name="primarySubjects"
                 value={formData.primarySubjects}
                 onChange={handleInputChange}
                 placeholder="MATH"
+                style={{ width: '100%' }}
               />
             </div>
           </div>
           
-          <div className="row">
-            <div>
-              <label>Availability (e.g., Mon:09:00-15:00,Tue:09:00-15:00)</label>
+          <div className="form-row">
+            <div className="form-group">
+              <label>
+                Availability Schedule
+              </label>
               <input
                 name="availability"
                 value={formData.availability}
                 onChange={handleInputChange}
                 placeholder="Mon:09:00-15:00,Tue:09:00-15:00"
+                style={{ width: '100%' }}
               />
+              <small className="muted" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                Format: Day:StartTime-EndTime (e.g., Mon:09:00-15:00,Tue:10:00-16:00)
+              </small>
             </div>
-            <div>
-              <label>Max Daily Hours</label>
+            <div className="form-group">
+              <label>
+                Max Daily Hours
+              </label>
               <input
                 name="maxDailyHours"
                 type="number"
                 min="0"
+                max="12"
                 value={formData.maxDailyHours}
                 onChange={handleInputChange}
+                style={{ width: '100%' }}
               />
             </div>
           </div>
           
-          <div className="row">
-            <div>
-              <label>Rating</label>
+          <div className="form-row">
+            <div className="form-group">
+              <label>
+                Teacher Rating (0-5)
+              </label>
               <input
                 name="rating"
                 type="number"
@@ -136,15 +162,53 @@ function AdminPanel() {
                 step="0.1"
                 value={formData.rating}
                 onChange={handleInputChange}
+                style={{ width: '100%' }}
               />
+              <small className="muted" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                Performance rating from 0 to 5 stars
+              </small>
             </div>
+            <div></div>
           </div>
           
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button type="submit" className="primary">Save Teacher</button>
-            <span className={status.includes('Failed') ? 'error' : status.includes('Saved') ? 'success' : 'status'}>
-              {status}
-            </span>
+          <div style={{ 
+            display: 'flex', 
+            gap: '16px', 
+            alignItems: 'center', 
+            marginTop: '24px',
+            padding: '20px',
+            background: '#f8fafc',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <button type="submit" className="primary">
+              <span style={{ fontSize: '16px' }}>💾</span>
+              Save Teacher
+            </button>
+            {status && (
+              <span 
+                className={`status-indicator ${
+                  status.includes('Failed') ? 'error' : 
+                  status.includes('Saved') ? 'success' : 'info'
+                }`}
+                style={{
+                  background: status.includes('Failed') ? '#fee2e2' : 
+                             status.includes('Saved') ? '#dcfce7' : '#e0f2fe',
+                  color: status.includes('Failed') ? '#dc2626' : 
+                         status.includes('Saved') ? '#059669' : '#0369a1',
+                  border: `1px solid ${
+                    status.includes('Failed') ? '#fecaca' : 
+                    status.includes('Saved') ? '#bbf7d0' : '#bae6fd'
+                  }`
+                }}
+              >
+                <span>
+                  {status.includes('Failed') ? '❌' : 
+                   status.includes('Saved') ? '✅' : '⏳'}
+                </span>
+                {status}
+              </span>
+            )}
           </div>
         </form>
       </div>
