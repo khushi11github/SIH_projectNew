@@ -182,7 +182,6 @@ function AdminPanel() {
             border: '1px solid #e2e8f0'
           }}>
             <button type="submit" className="primary">
-              <span style={{ fontSize: '16px' }}>💾</span>
               Save Teacher
             </button>
             {status && (
@@ -202,10 +201,6 @@ function AdminPanel() {
                   }`
                 }}
               >
-                <span>
-                  {status.includes('Failed') ? '❌' : 
-                   status.includes('Saved') ? '✅' : '⏳'}
-                </span>
                 {status}
               </span>
             )}

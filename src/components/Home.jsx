@@ -40,8 +40,7 @@ function Home() {
     <div className="container">
       <div className="card">
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', margin: 0 }}>
-            <span style={{ fontSize: '32px' }}>📅</span>
+          <h1 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', color: '#1e293b' }}>
             Timetable Generator
           </h1>
           <p className="muted" style={{ fontSize: '16px', marginTop: '8px' }}>
