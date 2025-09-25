@@ -36,13 +36,16 @@ function StudentTimetable() {
           throw new Error('Failed to load timetable')
         }
         const result = await response.json()
+        console.log('API Response:', result) // Debug log
         setData(result)
         
-        // Extract unique days
-        const uniqueDays = [...new Set(result.data.map(item => item.Day).filter(Boolean))]
-        setDays(uniqueDays)
-        if (uniqueDays.length > 0 && !selectedDay) {
-          setSelectedDay(uniqueDays[0])
+        // Extract unique days from timetable object
+        if (result.timetable) {
+          const uniqueDays = Object.keys(result.timetable)
+          setDays(uniqueDays)
+          if (uniqueDays.length > 0 && !selectedDay) {
+            setSelectedDay(uniqueDays[0])
+          }
         }
       } catch (error) {
         console.error('Error fetching timetable:', error)
@@ -81,7 +84,7 @@ function StudentTimetable() {
     }
   }
 
-  const filteredData = data?.data?.filter(item => item.Day === selectedDay) || []
+  const filteredData = data?.timetable?.[selectedDay] || []
 
   if (loading) {
     return (
@@ -110,12 +113,12 @@ function StudentTimetable() {
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
           <h1>Student Timetable</h1>
-          <span className="badge">{data.studentName} ({studentId}) • Class: {data.classId}</span>
+          <span className="badge">{data.name} ({data.studentId}) • Class: {data.classId}</span>
         </div>
         
         <div className="kpis">
           <div className="kpi">
-            Student: <span className="pill">{data.studentName || '—'}</span>
+            Student: <span className="pill">{data.name || '—'}</span>
           </div>
           <div className="kpi">
             Class: <span className="pill">{data.classId || '—'}</span>
@@ -124,7 +127,7 @@ function StudentTimetable() {
             Status: <span className="pill">Loaded</span>
           </div>
           <div className="kpi">
-            Rows: <span className="pill">{data.data?.length || 0}</span>
+            Days: <span className="pill">{days.length || 0}</span>
           </div>
         </div>
 
@@ -159,32 +162,27 @@ function StudentTimetable() {
             </thead>
             <tbody>
               {filteredData.map((row, index) => {
-                if (Object.keys(row).length === 0) {
-                  return <tr key={index}><td colSpan="9" style={{ height: '8px' }}></td></tr>
-                }
-                
                 return (
                   <tr key={index}>
-                    <td>{row.Day}</td>
-                    <td style={{ fontWeight: '600' }}>{row.Time}</td>
-                    <td style={{ fontWeight: '500' }}>{row.Subject}</td>
-                    <td>{row.Teacher}</td>
-                    <td>{row.Room}</td>
-                    <td>{row.Type}</td>
-                    <td>{getProgressBadge(row.Progress, row.Type)}</td>
-                    <td style={{ color: '#64748b', fontSize: '13px' }}>{row.Notes || '—'}</td>
+                    <td>{selectedDay}</td>
+                    <td style={{ fontWeight: '600' }}>{row.time}</td>
+                    <td style={{ fontWeight: '500' }}>{row.subject}</td>
+                    <td>{row.teacher}</td>
+                    <td>{row.room || '—'}</td>
+                    <td>{row.type}</td>
+                    <td>{getProgressBadge(row.status, row.type)}</td>
+                    <td style={{ color: '#64748b', fontSize: '13px' }}>{row.notes || '—'}</td>
                     <td>
-                      {row.ActivityKey ? (
+                      {row.type === 'activity' ? (
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <select
-                            value={row.Progress || ''}
-                            onChange={(e) => handleProgressUpdate(row.ActivityKey, e.target.value)}
+                            value={row.status || ''}
+                            onChange={(e) => handleProgressUpdate(row.key, e.target.value)}
                             className="status-dropdown"
                           >
                             <option value="">Set status</option>
-                            <option value="todo">To do</option>
-                            <option value="in_progress">In progress</option>
-                            <option value="done">Done</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
                           </select>
                           <button className="action-button" title="Edit notes">
                             Edit
@@ -208,47 +206,45 @@ function StudentTimetable() {
           <small className="muted" style={{ fontSize: '13px' }}>Rebuilds plans using AI diversity rules</small>
         </div>
 
-        <div className="panel" style={{ marginTop: '20px' }}>
-          <h4 style={{ marginBottom: '16px', color: '#1e293b' }}>
-            Activity Periods
-          </h4>
-          {filteredData.filter(row => row.Type === 'Activity Period').length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
-              <em>No activity periods found for {selectedDay}.</em>
-            </div>
-          ) : (
+        {data.activities && data.activities.length > 0 && (
+          <div className="panel" style={{ marginTop: '20px' }}>
+            <h4 style={{ marginBottom: '16px', color: '#1e293b' }}>
+              Activities & Progress
+            </h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-              {filteredData
-                .filter(row => row.Type === 'Activity Period')
-                .map((row, index) => (
-                  <div key={index} style={{ 
-                    background: '#fefce8', 
-                    border: '1px solid #fde68a', 
-                    borderRadius: '12px', 
-                    padding: '16px',
-                    transition: 'transform 0.2s ease',
-                    cursor: 'pointer'
-                  }}
-                  onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
-                  >
-                    <div style={{ 
-                      fontWeight: '600', 
-                      marginBottom: '8px', 
-                      color: '#92400e'
-                    }}>
-                      {row.Day} {row.Time}
-                    </div>
-                    <div style={{ color: '#451a03' }}>
-                      <strong>Activity:</strong> <span style={{ fontWeight: '600', color: '#92400e' }}>
-                        {row.IndividualActivity || '—'}
-                      </span>
-                    </div>
+              {data.activities.map((activity, index) => (
+                <div key={index} style={{ 
+                  background: activity.status === 'completed' ? '#f0fdf4' : '#fefce8', 
+                  border: `1px solid ${activity.status === 'completed' ? '#bbf7d0' : '#fde68a'}`, 
+                  borderRadius: '12px', 
+                  padding: '16px',
+                  transition: 'transform 0.2s ease',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+                onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
+                >
+                  <div style={{ 
+                    fontWeight: '600', 
+                    marginBottom: '8px', 
+                    color: activity.status === 'completed' ? '#16a34a' : '#92400e'
+                  }}>
+                    {activity.title}
                   </div>
-                ))}
+                  <div style={{ color: activity.status === 'completed' ? '#15803d' : '#451a03' }}>
+                    <strong>Status:</strong> <span style={{ 
+                      fontWeight: '600', 
+                      color: activity.status === 'completed' ? '#16a34a' : '#92400e',
+                      textTransform: 'capitalize'
+                    }}>
+                      {activity.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
