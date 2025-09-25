@@ -11,12 +11,13 @@ module.exports = (req, res) => {
     }
 
     if (req.method === 'GET') {
-        res.status(200).json({ 
-            message: 'API is working!', 
-            timestamp: new Date().toISOString(),
-            method: req.method,
-            url: req.url
-        });
+        // Return mock data for now to test API
+        const students = [
+            { id: '1000', name: 'Alice Johnson', classId: '10A' },
+            { id: '1001', name: 'Bob Smith', classId: '10A' },
+            { id: '1002', name: 'Carol Davis', classId: '10B' }
+        ];
+        res.json({ students });
     } else {
         res.status(405).json({ error: 'Method not allowed' });
     }
