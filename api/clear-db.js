@@ -32,23 +32,23 @@ module.exports = async (req, res) => {
                 
                 const studentsCollection = db.collection('students');
 
-                // Your real student data (the actual names you confirmed)
+                // Your real student data with complete details
                 const students = [
-                    { id: 1000, name: 'Aarav 1', classId: 'C1', section: 'A' },
-                    { id: 1001, name: 'Isha 2', classId: 'C1', section: 'A' },
-                    { id: 1002, name: 'Vihaan 3', classId: 'C1', section: 'A' },
-                    { id: 1003, name: 'Anaya 4', classId: 'C1', section: 'A' },
-                    { id: 1004, name: 'Advait 5', classId: 'C1', section: 'A' },
-                    { id: 1005, name: 'Diya 6', classId: 'C1', section: 'A' },
-                    { id: 1006, name: 'Kabir 7', classId: 'C1', section: 'A' },
-                    { id: 1007, name: 'Saanvi 8', classId: 'C1', section: 'A' },
-                    { id: 1008, name: 'Arjun 9', classId: 'C1', section: 'A' },
-                    { id: 1009, name: 'Kavya 10', classId: 'C1', section: 'A' },
-                    { id: 1010, name: 'Reyansh 11', classId: 'C1', section: 'A' },
-                    { id: 1011, name: 'Pihu 12', classId: 'C1', section: 'A' },
-                    { id: 1012, name: 'Ayaan 13', classId: 'C1', section: 'A' },
-                    { id: 1013, name: 'Myra 14', classId: 'C1', section: 'A' },
-                    { id: 1014, name: 'Vivaan 15', classId: 'C1', section: 'A' }
+                    { id: 1000, name: 'Aarav 1', classId: 'C1', interests: 'Reading', skillLevel: 2, goals: 'Improve weekly and participate actively' },
+                    { id: 1001, name: 'Isha 2', classId: 'C1', interests: 'Clubs', skillLevel: 3, goals: 'Improve weekly and participate actively' },
+                    { id: 1002, name: 'Vihaan 3', classId: 'C1', interests: 'Sports', skillLevel: 4, goals: 'Improve weekly and participate actively' },
+                    { id: 1003, name: 'Anaya 4', classId: 'C1', interests: 'Library', skillLevel: 5, goals: 'Improve weekly and participate actively' },
+                    { id: 1004, name: 'Advait 5', classId: 'C1', interests: 'Mentorship', skillLevel: 2, goals: 'Improve weekly and participate actively' },
+                    { id: 1005, name: 'Diya 1', classId: 'C2', interests: 'Clubs', skillLevel: 3, goals: 'Improve weekly and participate actively' },
+                    { id: 1006, name: 'Arjun 2', classId: 'C2', interests: 'Sports', skillLevel: 4, goals: 'Improve weekly and participate actively' },
+                    { id: 1007, name: 'Sara 3', classId: 'C2', interests: 'Library', skillLevel: 5, goals: 'Improve weekly and participate actively' },
+                    { id: 1008, name: 'Kabir 4', classId: 'C2', interests: 'Mentorship', skillLevel: 2, goals: 'Improve weekly and participate actively' },
+                    { id: 1009, name: 'Meera 5', classId: 'C2', interests: 'Reading', skillLevel: 3, goals: 'Improve weekly and participate actively' },
+                    { id: 1010, name: 'Aarav 1', classId: 'C3', interests: 'Sports', skillLevel: 4, goals: 'Improve weekly and participate actively' },
+                    { id: 1011, name: 'Isha 2', classId: 'C3', interests: 'Library', skillLevel: 5, goals: 'Improve weekly and participate actively' },
+                    { id: 1012, name: 'Vihaan 3', classId: 'C3', interests: 'Mentorship', skillLevel: 2, goals: 'Improve weekly and participate actively' },
+                    { id: 1013, name: 'Anaya 4', classId: 'C3', interests: 'Reading', skillLevel: 3, goals: 'Improve weekly and participate actively' },
+                    { id: 1014, name: 'Advait 5', classId: 'C3', interests: 'Clubs', skillLevel: 4, goals: 'Improve weekly and participate actively' }
                 ];
 
                 // Clear existing students and insert the real ones
