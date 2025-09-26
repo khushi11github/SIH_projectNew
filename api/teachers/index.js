@@ -53,7 +53,7 @@ module.exports = async (req, res) => {
                 id: teacher.id,
                 name: teacher.name,
                 subjects: teacher.subjects,
-                primarySubjects: teacher.primarySubjects,
+                primarySubject: teacher.primarySubject,
                 availability: teacher.availability,
                 maxDailyHours: teacher.maxDailyHours,
                 rating: teacher.rating
