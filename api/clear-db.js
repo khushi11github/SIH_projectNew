@@ -72,6 +72,93 @@ module.exports = async (req, res) => {
                     timestamp: new Date().toISOString()
                 });
                 
+            } else if (action === 'add-subjects') {
+                console.log('Adding subjects to database...');
+                
+                const subjectsCollection = db.collection('subjects');
+
+                // Your real subjects data
+                const subjects = [
+                    { id: 'MATH', name: 'Mathematics', credits: 8, weeklySessions: 1 },
+                    { id: 'PHY', name: 'Physics', credits: 6, weeklySessions: 1 },
+                    { id: 'CHEM', name: 'Chemistry', credits: 6, weeklySessions: 1 },
+                    { id: 'BIO', name: 'Biology', credits: 5, weeklySessions: 1 },
+                    { id: 'ENG', name: 'English', credits: 5, weeklySessions: 1 },
+                    { id: 'HIST', name: 'History', credits: 4, weeklySessions: 1 },
+                    { id: 'CS', name: 'Computer Sci', credits: 7, weeklySessions: 1 }
+                ];
+
+                // Clear existing subjects and insert new ones
+                await subjectsCollection.deleteMany({});
+                const result = await subjectsCollection.insertMany(subjects);
+
+                await client.close();
+
+                res.json({
+                    success: true,
+                    action: 'subjects-added',
+                    message: `Successfully added ${result.insertedCount} subjects to database`,
+                    subjects: subjects.map(s => ({ id: s.id, name: s.name, credits: s.credits })),
+                    timestamp: new Date().toISOString()
+                });
+
+            } else if (action === 'add-classes') {
+                console.log('Adding classes to database...');
+                
+                const classesCollection = db.collection('classes');
+
+                // Your real classes data
+                const classes = [
+                    { id: 'C1', name: 'Class 1', room: 'R101', subjects: ['MATH', 'PHY', 'CHEM', 'ENG', 'HIST'], totalCredits: 28 },
+                    { id: 'C2', name: 'Class 2', room: 'R102', subjects: ['MATH', 'PHY', 'CHEM', 'BIO', 'ENG'], totalCredits: 30 },
+                    { id: 'C3', name: 'Class 3', room: 'R103', subjects: ['MATH', 'CS', 'PHY', 'ENG', 'HIST'], totalCredits: 29 }
+                ];
+
+                // Clear existing classes and insert new ones
+                await classesCollection.deleteMany({});
+                const result = await classesCollection.insertMany(classes);
+
+                await client.close();
+
+                res.json({
+                    success: true,
+                    action: 'classes-added',
+                    message: `Successfully added ${result.insertedCount} classes to database`,
+                    classes: classes.map(c => ({ id: c.id, name: c.name, subjects: c.subjects })),
+                    timestamp: new Date().toISOString()
+                });
+
+            } else if (action === 'add-config') {
+                console.log('Adding config to database...');
+                
+                const configCollection = db.collection('config');
+
+                // Your timetable configuration
+                const config = [
+                    { key: 'days', value: 'Mon,Tue,Wed,Thu,Fri' },
+                    { key: 'startTime', value: '08:00' },
+                    { key: 'endTime', value: '15:00' },
+                    { key: 'periodDuration', value: 1 },
+                    { key: 'specialPeriods', value: '' },
+                    { key: 'fillAllPeriods', value: true },
+                    { key: 'activitiesList', value: 'Reading,Clubs,Sports,Library,Mentorship' },
+                    { key: 'activityStrategy', value: 'balanced' }
+                ];
+
+                // Clear existing config and insert new ones
+                await configCollection.deleteMany({});
+                const result = await configCollection.insertMany(config);
+
+                await client.close();
+
+                res.json({
+                    success: true,
+                    action: 'config-added',
+                    message: `Successfully added ${result.insertedCount} config settings to database`,
+                    config: config.map(c => ({ key: c.key, value: c.value })),
+                    timestamp: new Date().toISOString()
+                });
+
             } else if (action === 'add-teachers') {
                 console.log('Adding teachers to database...');
                 
