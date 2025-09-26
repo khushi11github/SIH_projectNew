@@ -66,30 +66,19 @@ const SUBJECTS_DATA = [
     { id: "CS", name: "Computer Sci", credits: 7, weeklySessions: 1 }
 ];
 
-async function ensureDataExists(db) {
+async function checkDatabaseStatus(db) {
     const studentsCollection = db.collection('students');
-    const teachersCollection = db.collection('teachers');
-    const classesCollection = db.collection('classes');
-    const subjectsCollection = db.collection('subjects');
     
-    // Check if students exist
+    // Check what's actually in the database
     const studentCount = await studentsCollection.countDocuments();
+    const actualStudents = await studentsCollection.find({}).limit(3).toArray();
     
-    if (studentCount === 0) {
-        console.log('Seeding database with your real data...');
-        
-        // Insert all data
-        await Promise.all([
-            studentsCollection.insertMany(STUDENTS_DATA),
-            teachersCollection.insertMany(TEACHERS_DATA),
-            classesCollection.insertMany(CLASSES_DATA),
-            subjectsCollection.insertMany(SUBJECTS_DATA)
-        ]);
-        
-        console.log('Database seeded successfully!');
-    }
-    
-    return studentCount;
+    return {
+        hasData: studentCount > 0,
+        count: studentCount,
+        sampleData: actualStudents,
+        message: studentCount === 0 ? 'Database is empty - no real data found!' : `Found ${studentCount} actual database records`
+    };
 }
 
 module.exports = async (req, res) => {
@@ -111,14 +100,30 @@ module.exports = async (req, res) => {
             const { db } = await connectToDatabase();
             console.log('Students API: Connected to MongoDB successfully');
             
-            // Ensure data exists
-            await ensureDataExists(db);
+            // Check what's actually in the database WITHOUT auto-seeding
+            const dbStatus = await checkDatabaseStatus(db);
+            console.log('Database Status:', dbStatus.message);
             
-            // Fetch real students from database
-            const studentsCollection = db.collection('students');
-            const students = await studentsCollection.find({}).sort({ id: 1 }).toArray();
+            let students;
+            let dataSource;
             
-            console.log(`Students API: Found ${students.length} real students from database`);
+            if (dbStatus.hasData) {
+                // Use actual database data
+                const studentsCollection = db.collection('students');
+                students = await studentsCollection.find({}).sort({ id: 1 }).toArray();
+                dataSource = 'actual-database-records';
+                console.log(`Students API: Using ${students.length} REAL database records`);
+            } else {
+                // Database is empty - return this fact instead of auto-seeding
+                return res.json({
+                    students: [],
+                    source: 'database-empty',
+                    count: 0,
+                    message: 'Your MongoDB database is empty! No real student data found. Please add actual data to your database.',
+                    timestamp: new Date().toISOString(),
+                    suggestion: 'Use a database management tool to add your real student data to the "students" collection'
+                });
+            }
             
             // Format students for frontend
             const formattedStudents = students.map(student => ({
@@ -132,9 +137,10 @@ module.exports = async (req, res) => {
             
             res.json({
                 students: formattedStudents,
-                source: 'mongodb-real-database',
+                source: dataSource,
                 count: formattedStudents.length,
-                message: `Real data from MongoDB: ${formattedStudents.length} students (${formattedStudents[0]?.id} to ${formattedStudents[formattedStudents.length-1]?.id})`,
+                message: `Using ${dataSource}: ${formattedStudents.length} students (${formattedStudents[0]?.id} to ${formattedStudents[formattedStudents.length-1]?.id})`,
+                databaseStatus: dbStatus,
                 timestamp: new Date().toISOString()
             });
             
