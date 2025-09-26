@@ -61,7 +61,14 @@ module.exports = async (req, res) => {
                     success: true,
                     action: 'students-added',
                     message: `Successfully restored ${result.insertedCount} real students to database`,
-                    students: students.map(s => ({ id: s.id, name: s.name, classId: s.classId })),
+                    students: students.map(s => ({ 
+                        id: s.id, 
+                        name: s.name, 
+                        classId: s.classId, 
+                        interests: s.interests, 
+                        skillLevel: s.skillLevel, 
+                        goals: s.goals 
+                    })),
                     timestamp: new Date().toISOString()
                 });
                 
