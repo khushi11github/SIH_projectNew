@@ -39,9 +39,24 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'GET') {
         try {
+            // First ensure database has data
+            const { ensureDataExists } = require('../database-seed.js');
+            const dataCheck = await ensureDataExists();
+            
+            if (!dataCheck.success) {
+                return res.status(500).json({ 
+                    ok: false, 
+                    error: 'Database initialization failed: ' + dataCheck.error 
+                });
+            }
+            
             tgInstance = null; // Force regeneration
             const tg = await getGenerator();
-            res.status(200).json({ ok: true, message: 'Timetables regenerated' });
+            res.status(200).json({ 
+                ok: true, 
+                message: 'Timetables regenerated with real database data',
+                databaseCounts: dataCheck.counts
+            });
         } catch (error) {
             console.error('Error generating timetables:', error.message);
             res.status(500).json({ ok: false, error: error.message });

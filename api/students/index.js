@@ -12,21 +12,28 @@ module.exports = async (req, res) => {
 
     if (req.method === 'GET') {
         try {
-            // Dynamic import to avoid module loading issues
+            // First ensure database has data
+            const { ensureDataExists } = require('../../database-seed.js');
+            console.log('Students API: Ensuring database data exists...');
+            
+            const dataCheck = await ensureDataExists();
+            if (!dataCheck.success) {
+                console.error('Students API: Database initialization failed:', dataCheck.error);
+                return res.status(500).json({ 
+                    error: 'Database initialization failed: ' + dataCheck.error 
+                });
+            }
+            
+            // Now fetch from database
             const { connectToMongo } = require('../../src/db.cjs');
             const { Student } = require('../../src/models.cjs');
             
-            console.log('Students API: Attempting to connect to MongoDB...');
+            console.log('Students API: Connecting to MongoDB...');
             await connectToMongo(process.env.MONGO_URI);
             console.log('Students API: MongoDB connected successfully');
             
             const students = await Student.find({}).sort({ id: 1 });
             console.log('Students API: Found', students.length, 'students in database');
-            
-            if (students.length === 0) {
-                console.log('Students API: No students found in database, using fallback data');
-                throw new Error('No students found in database');
-            }
             
             // Transform to match expected format
             const formattedStudents = students.map(student => ({
@@ -42,33 +49,15 @@ module.exports = async (req, res) => {
             res.json({ 
                 students: formattedStudents,
                 source: 'database',
-                count: formattedStudents.length
+                count: formattedStudents.length,
+                databaseCounts: dataCheck.counts
             });
+            
         } catch (error) {
             console.error('Error fetching students:', error.message);
-            // Return actual student IDs from your database structure
-            const mockStudents = [
-                { id: '1000', name: 'Aarav 1', classId: 'C1' },
-                { id: '1001', name: 'Isha 2', classId: 'C1' },
-                { id: '1002', name: 'Vihaan 3', classId: 'C1' },
-                { id: '1003', name: 'Anaya 4', classId: 'C1' },
-                { id: '1004', name: 'Advait 5', classId: 'C1' },
-                { id: '1005', name: 'Diya 1', classId: 'C2' },
-                { id: '1006', name: 'Arjun 2', classId: 'C2' },
-                { id: '1007', name: 'Sara 3', classId: 'C2' },
-                { id: '1008', name: 'Kabir 4', classId: 'C2' },
-                { id: '1009', name: 'Meera 5', classId: 'C2' },
-                { id: '1010', name: 'Aarav 1', classId: 'C3' },
-                { id: '1011', name: 'Isha 2', classId: 'C3' },
-                { id: '1012', name: 'Vihaan 3', classId: 'C3' },
-                { id: '1013', name: 'Anaya 4', classId: 'C3' },
-                { id: '1014', name: 'Advait 5', classId: 'C3' }
-            ];
-            res.json({ 
-                students: mockStudents, 
-                source: 'fallback',
-                note: 'Using fallback data due to DB error: ' + error.message,
-                count: mockStudents.length
+            res.status(500).json({ 
+                error: 'Failed to fetch students from database: ' + error.message,
+                source: 'error'
             });
         }
     } else {

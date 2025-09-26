@@ -11,20 +11,28 @@ module.exports = async (req, res) => {
     }
     if (req.method === 'GET') {
         try {
+            // First ensure database has data
+            const { ensureDataExists } = require('../../database-seed.js');
+            console.log('Teachers API: Ensuring database data exists...');
+            
+            const dataCheck = await ensureDataExists();
+            if (!dataCheck.success) {
+                console.error('Teachers API: Database initialization failed:', dataCheck.error);
+                return res.status(500).json({ 
+                    error: 'Database initialization failed: ' + dataCheck.error 
+                });
+            }
+            
+            // Now fetch from database
             const { connectToMongo } = require('../../src/db.cjs');
             const { Teacher } = require('../../src/models.cjs');
             
-            console.log('Teachers API: Attempting to connect to MongoDB...');
+            console.log('Teachers API: Connecting to MongoDB...');
             await connectToMongo(process.env.MONGO_URI);
             console.log('Teachers API: MongoDB connected successfully');
             
             const teachers = await Teacher.find({}).sort({ id: 1 });
             console.log('Teachers API: Found', teachers.length, 'teachers in database');
-            
-            if (teachers.length === 0) {
-                console.log('Teachers API: No teachers found in database, using fallback data');
-                throw new Error('No teachers found in database');
-            }
             
             // Transform to match expected format
             const formattedTeachers = teachers.map(teacher => ({
@@ -41,23 +49,15 @@ module.exports = async (req, res) => {
             res.json({ 
                 teachers: formattedTeachers,
                 source: 'database',
-                count: formattedTeachers.length
+                count: formattedTeachers.length,
+                databaseCounts: dataCheck.counts
             });
+            
         } catch (error) {
             console.error('Error fetching teachers:', error.message);
-            // Return actual teacher IDs from your database structure
-            const mockTeachers = [
-                { id: 'T1', name: 'Dr. Smith', subjects: ['Mathematics', 'Physics'], rating: 4.8 },
-                { id: 'T2', name: 'Prof. Johnson', subjects: ['Chemistry', 'Biology'], rating: 4.6 },
-                { id: 'T3', name: 'Ms. Davis', subjects: ['English', 'History'], rating: 4.9 },
-                { id: 'T4', name: 'Mr. Wilson', subjects: ['Computer Sci', 'Mathematics'], rating: 4.7 },
-                { id: 'T5', name: 'Dr. Brown', subjects: ['Physics', 'Chemistry'], rating: 4.5 }
-            ];
-            res.json({ 
-                teachers: mockTeachers, 
-                source: 'fallback',
-                note: 'Using fallback data due to DB error: ' + error.message,
-                count: mockTeachers.length
+            res.status(500).json({ 
+                error: 'Failed to fetch teachers from database: ' + error.message,
+                source: 'error'
             });
         }
     } else {
