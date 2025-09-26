@@ -11,11 +11,22 @@ module.exports = async (req, res) => {
     }
     if (req.method === 'GET') {
         try {
-            // First ensure database has data
-            const { ensureDataExists } = require('../../database-seed.js');
+            // First ensure database has data  
             console.log('Teachers API: Ensuring database data exists...');
             
-            const dataCheck = await ensureDataExists();
+            let dataCheck;
+            try {
+                const { ensureDataExists } = require('../../database-seed.js');
+                dataCheck = await ensureDataExists();
+            } catch (seedError) {
+                console.error('Teachers API: Seeding system error:', seedError.message);
+                // Use direct database connection and check
+                const { connectToMongo } = require('../../src/db.cjs');
+                const { Teacher } = require('../../src/models.cjs');
+                await connectToMongo(process.env.MONGO_URI);
+                const teacherCount = await Teacher.countDocuments();
+                dataCheck = { success: teacherCount > 0, counts: { teachers: teacherCount } };
+            }
             if (!dataCheck.success) {
                 console.error('Teachers API: Database initialization failed:', dataCheck.error);
                 return res.status(500).json({ 

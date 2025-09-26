@@ -1,6 +1,6 @@
 // Database seeding and initialization system
-const { connectToMongo } = require('../src/db.cjs');
-const { Student, Teacher, ClassModel, Subject } = require('../src/models.cjs');
+const { connectToMongo } = require('./src/db.cjs');
+const { Student, Teacher, ClassModel, Subject } = require('./src/models.cjs');
 
 // Your exact database data structure
 const STUDENTS_DATA = [
