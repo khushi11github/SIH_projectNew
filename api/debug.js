@@ -46,22 +46,27 @@ module.exports = async (req, res) => {
             const collections = await db.listCollections().toArray();
             console.log('Collections found:', collections.map(c => c.name));
             
-            // Check each collection
+            // Check each collection with more detailed data
             const results = {};
             
-            for (const collection of ['students', 'teachers', 'classes', 'subjects']) {
+            for (const collectionName of ['students', 'teachers', 'classes', 'subjects']) {
                 try {
-                    const coll = db.collection(collection);
+                    const coll = db.collection(collectionName);
                     const count = await coll.countDocuments();
-                    const sample = await coll.find({}).limit(2).toArray();
+                    const allData = await coll.find({}).toArray();
                     
-                    results[collection] = {
+                    results[collectionName] = {
                         exists: true,
                         count: count,
-                        sampleData: sample
+                        allRecords: allData.map((record, index) => ({
+                            index: index + 1,
+                            id: record.id || record._id,
+                            name: record.name,
+                            data: record
+                        }))
                     };
                 } catch (err) {
-                    results[collection] = {
+                    results[collectionName] = {
                         exists: false,
                         error: err.message
                     };
@@ -73,7 +78,7 @@ module.exports = async (req, res) => {
                 database: DB_NAME,
                 collections: collections.map(c => c.name),
                 collectionDetails: results,
-                message: 'This shows what is ACTUALLY in your MongoDB database',
+                message: 'Complete database contents - this shows ALL your real data',
                 timestamp: new Date().toISOString()
             });
             
