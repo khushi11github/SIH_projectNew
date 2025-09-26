@@ -4,7 +4,7 @@ let isConnected = false;
 
 async function connectToMongo(mongoUri) {
     if (isConnected) return mongoose.connection;
-    const uri = mongoUri || process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/sih_timetable';
+    const uri = mongoUri || process.env.MONGO_URI || 'mongodb+srv://satakratu:satakratu567@cluster0.vs3qc.mongodb.net/';
     // Extract database name from URI if not specified
     let dbName = process.env.MONGO_DB_NAME;
     if (!dbName && uri.includes('mongodb+srv://')) {
