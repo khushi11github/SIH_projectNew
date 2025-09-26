@@ -1,10 +1,66 @@
+const mongoose = require('mongoose');
+
+// Define schemas inline to avoid import issues
+const StudentSchema = new mongoose.Schema({
+    id: { type: String, index: true, unique: true },
+    name: String,
+    classId: String,
+    interests: [String],
+    skillLevel: { type: Number, default: 3 },
+    goals: String
+});
+
+const TeacherSchema = new mongoose.Schema({
+    id: { type: String, index: true, unique: true },
+    name: String,
+    subjects: [String],
+    primarySubjects: [String],
+    availability: [],
+    maxDailyHours: { type: Number, default: 0 },
+    rating: { type: Number, default: 0 }
+});
+
+const ClassSchema = new mongoose.Schema({
+    id: { type: String, index: true, unique: true },
+    name: String,
+    room: String,
+    subjects: [String],
+    totalCredits: { type: Number, default: 0 }
+});
+
+const SubjectSchema = new mongoose.Schema({
+    id: { type: String, index: true, unique: true },
+    name: String,
+    credits: { type: Number, default: 1 },
+    weeklySessions: { type: Number, default: 1 }
+});
+
+let isConnected = false;
+
+async function connectDB() {
+    if (isConnected) return;
+    
+    const uri = 'mongodb+srv://satakratu:satakratu567@cluster0.vs3qc.mongodb.net/sih_timetable';
+    await mongoose.connect(uri, { 
+        autoIndex: true,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 10000
+    });
+    isConnected = true;
+    console.log('MongoDB Connected');
+}
+
 // Direct seeding fallback function
 async function directSeedDatabase() {
     try {
-        const { connectToMongo } = require('../../src/db.cjs');
-        const { Student, Teacher, ClassModel, Subject } = require('../../src/models.cjs');
         
-        await connectToMongo(process.env.MONGO_URI);
+        await connectDB();
+        
+        // Get or create models (safe for serverless)
+        const Student = mongoose.models.Student || mongoose.model('Student', StudentSchema);
+        const Teacher = mongoose.models.Teacher || mongoose.model('Teacher', TeacherSchema);
+        const ClassModel = mongoose.models.Class || mongoose.model('Class', ClassSchema);
+        const Subject = mongoose.models.Subject || mongoose.model('Subject', SubjectSchema);
         
         // Check if data already exists
         const studentCount = await Student.countDocuments();
@@ -100,32 +156,32 @@ module.exports = async (req, res) => {
 
     if (req.method === 'GET') {
         try {
-            // First ensure database has data
-            console.log('Students API: Ensuring database data exists...');
+            console.log('Students API: Starting...');
             
-            let dataCheck;
-            try {
-                const { ensureDataExists } = require('../../database-seed.js');
-                dataCheck = await ensureDataExists();
-            } catch (seedError) {
-                console.error('Students API: Seeding system error:', seedError.message);
-                // Try direct seeding as fallback
-                dataCheck = await directSeedDatabase();
+            // Connect and ensure data
+            await connectDB();
+            
+            // Get or create models (safe for serverless)
+            const Student = mongoose.models.Student || mongoose.model('Student', StudentSchema);
+            const Teacher = mongoose.models.Teacher || mongoose.model('Teacher', TeacherSchema);
+            const ClassModel = mongoose.models.Class || mongoose.model('Class', ClassSchema);
+            const Subject = mongoose.models.Subject || mongoose.model('Subject', SubjectSchema);
+            
+            console.log('Students API: Models ready');
+            
+            // Check if we have data, if not seed it
+            let studentCount = await Student.countDocuments();
+            console.log('Students API: Current student count:', studentCount);
+            
+            if (studentCount === 0) {
+                console.log('Students API: Seeding database...');
+                const dataCheck = await directSeedDatabase();
+                if (!dataCheck.success) {
+                    return res.status(500).json({ 
+                        error: 'Database seeding failed: ' + dataCheck.error 
+                    });
+                }
             }
-            if (!dataCheck.success) {
-                console.error('Students API: Database initialization failed:', dataCheck.error);
-                return res.status(500).json({ 
-                    error: 'Database initialization failed: ' + dataCheck.error 
-                });
-            }
-            
-            // Now fetch from database
-            const { connectToMongo } = require('../../src/db.cjs');
-            const { Student } = require('../../src/models.cjs');
-            
-            console.log('Students API: Connecting to MongoDB...');
-            await connectToMongo(process.env.MONGO_URI);
-            console.log('Students API: MongoDB connected successfully');
             
             const students = await Student.find({}).sort({ id: 1 });
             console.log('Students API: Found', students.length, 'students in database');
@@ -143,16 +199,17 @@ module.exports = async (req, res) => {
             console.log('Students API: Returning', formattedStudents.length, 'formatted students');
             res.json({ 
                 students: formattedStudents,
-                source: 'database',
+                source: 'mongodb-inline',
                 count: formattedStudents.length,
-                databaseCounts: dataCheck.counts
+                timestamp: new Date().toISOString()
             });
             
         } catch (error) {
-            console.error('Error fetching students:', error.message);
+            console.error('Students API Error:', error);
             res.status(500).json({ 
-                error: 'Failed to fetch students from database: ' + error.message,
-                source: 'error'
+                error: error.message,
+                source: 'error',
+                stack: error.stack
             });
         }
     } else {
