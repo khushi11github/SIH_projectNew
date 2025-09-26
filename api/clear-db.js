@@ -22,7 +22,10 @@ module.exports = async (req, res) => {
             const db = client.db(DB_NAME);
             
             // Check if this is a request to add teachers
-            const { action } = req.query;
+            console.log('Request URL:', req.url);
+            const url = new URL(req.url, `http://${req.headers.host}`);
+            const action = url.searchParams.get('action');
+            console.log('Parsed action:', action);
             
             if (action === 'add-teachers') {
                 console.log('Adding teachers to database...');
