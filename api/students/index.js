@@ -16,8 +16,17 @@ module.exports = async (req, res) => {
             const { connectToMongo } = require('../../src/db.cjs');
             const { Student } = require('../../src/models.cjs');
             
+            console.log('Students API: Attempting to connect to MongoDB...');
             await connectToMongo(process.env.MONGO_URI);
+            console.log('Students API: MongoDB connected successfully');
+            
             const students = await Student.find({}).sort({ id: 1 });
+            console.log('Students API: Found', students.length, 'students in database');
+            
+            if (students.length === 0) {
+                console.log('Students API: No students found in database, using fallback data');
+                throw new Error('No students found in database');
+            }
             
             // Transform to match expected format
             const formattedStudents = students.map(student => ({
@@ -29,7 +38,12 @@ module.exports = async (req, res) => {
                 skillLevel: student.skillLevel
             }));
             
-            res.json({ students: formattedStudents });
+            console.log('Students API: Returning', formattedStudents.length, 'formatted students');
+            res.json({ 
+                students: formattedStudents,
+                source: 'database',
+                count: formattedStudents.length
+            });
         } catch (error) {
             console.error('Error fetching students:', error.message);
             // Return actual student IDs from your database structure
@@ -50,7 +64,12 @@ module.exports = async (req, res) => {
                 { id: '1013', name: 'Anaya 4', classId: 'C3' },
                 { id: '1014', name: 'Advait 5', classId: 'C3' }
             ];
-            res.json({ students: mockStudents, note: 'Using fallback data due to DB error: ' + error.message });
+            res.json({ 
+                students: mockStudents, 
+                source: 'fallback',
+                note: 'Using fallback data due to DB error: ' + error.message,
+                count: mockStudents.length
+            });
         }
     } else {
         res.status(405).json({ error: 'Method not allowed' });
